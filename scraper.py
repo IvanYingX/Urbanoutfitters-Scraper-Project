@@ -1,6 +1,12 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+import re as regex
+
 from time import sleep
+
+product_list = []
+href_list =[]
 
 class WebDriver():
     '''
@@ -29,6 +35,9 @@ class WebDriver():
         chrome_options.add_experimental_option("detach", True)
         self.driver = webdriver.Chrome(options=chrome_options)
         self.driver.get(self.url)
+        self.driver.maximize_window()
+
+
         self.accept_all_cookies()
         
     
@@ -40,10 +49,10 @@ class WebDriver():
             None
         '''
         sleep(1) # Ensure the webpage has fully loaded first
-        accept_cookies_button = self.driver.find_element_by_xpath('//*[@id="onetrust-accept-btn-handler"]')
+        accept_cookies_button = self.driver.find_element(By.XPATH, '//*[@id="onetrust-accept-btn-handler"]')
         print(type(accept_cookies_button))
         accept_cookies_button.click()
-    
+
     def navigate_to_menu_bar(self):
         '''
         This function navigates to the menu bar container and returns the WebElement
@@ -57,7 +66,7 @@ class WebDriver():
         The driver will move to the new webpage
 
         Args:
-            gender (str): 'mens' or 'womens'
+            gender (str): 'mens' or 'womenscategorise it into '
             item_type (str): valid item_type that belongs to the mens or womens container
         
         Returns:
@@ -88,17 +97,52 @@ class WebDriver():
         # TODO
         pass
 
-    def next_page(self):
-        '''
-        This function will move to the next set of items from the current item type page
-        The driver will move to the new webpage
 
-        Returns:
-            None
-        '''
-        # TODO
-        pass
+
+
+    def load_more(self):
+        for i in range(10):
+            load_page_xpath = '//*[@id="page-content"]/div/div[2]/div[2]'
+            load_page = self.driver.find_element(By.XPATH, load_page_xpath)
+            button = load_page.find_element(By.TAG_NAME, 'button')
+            button.click()
+            sleep(2)
     
+    def scrape_href(self):
+        href_list = []
+        product_container_xpath = '//*[@id="page-content"]/div/div[2]/ul'
+        product_container = self.driver.find_element(By.XPATH, product_container_xpath)
+        products = product_container.find_elements(By.TAG_NAME, 'li')
+        for product in products:
+            image_container = product.findelement(By.CLASS_NAME, 'image-container')
+            a_tag = image_container.findelement(By.TAG_NAME, 'a')
+            href = a_tag.get_attribute('href')
+            href_list.append(href)
+            print(len(href_list))
+
+    def obtain_item_type(self):
+        #item type info is stored in 'breadcrumb_list' element
+        
+        breadcrumb_list_xpath = '//*[@id="main-content"]/div[1]/nav/ul'
+        breadcrumb_list = self.driver.find_element(By.XPATH, breadcrumb_list_xpath)
+        catagory_containers = breadcrumb_list.find_elements(By.TAG_NAME, 'li')
+
+        for catagory in catagory_containers:
+            a_tag = catagory.find_element(By.TAG_NAME, 'a')
+            element = a_tag.find_element(By.TAG_NAME, 'span')
+            outer_html = element.get_attribute('outerHTML')
+            catagories = regex.search('itemprop="name">(.*)</span>', outer_html).group(1)
+            
+            print(str(catagories))
+
+
+
+
+
+    def download_image(self) -> None:
+        # TODO
+        pass   
+
     def scrape_feature_from_page(self, feature):
         '''
         This function will scrape the input feature from the item page
@@ -112,10 +156,6 @@ class WebDriver():
         # TODO
         pass
     
-    def download_image(self) -> None:
-        # TODO
-        pass   
-
 
 class StoreData():
     '''
@@ -126,6 +166,8 @@ class StoreData():
 
     def upload_image_to_datalake(self):
         pass
+
+
 
 
 # List of womens items categories to navigate to, input to a function
@@ -141,9 +183,10 @@ mens_items = ['Hoodies & Sweatshirts', 'T-Shirts', 'Shirts', 'Jumpers & Knitwear
 feature = ['Price', 'Sizes', 'Colour', 'Brand', 'Discounted', 'Review Score', 'Number of Reviews']
 
 def run_scraper():
-    URL = "https://www.urbanoutfitters.com/en-gb/"
+    URL = "https://www2.hm.com/en_gb/productpage.0967440005.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
+    driver.obtain_item_type()
     
     # TODO: Be able to navigate to Womens Tops by uncommenting below
     gender = 'womens'
@@ -153,3 +196,4 @@ def run_scraper():
 
 if __name__ == '__main__':
     run_scraper()
+
