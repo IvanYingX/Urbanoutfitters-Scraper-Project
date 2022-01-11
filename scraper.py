@@ -1,12 +1,16 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+
+
 import re as regex
 
 from time import sleep
 
-product_list = []
-href_list =[]
 
 class WebDriver():
     '''
@@ -101,12 +105,23 @@ class WebDriver():
 
 
     def load_more(self):
-        for i in range(10):
-            load_page_xpath = '//*[@id="page-content"]/div/div[2]/div[2]'
-            load_page = self.driver.find_element(By.XPATH, load_page_xpath)
-            button = load_page.find_element(By.TAG_NAME, 'button')
-            button.click()
-            sleep(2)
+        wait = WebDriverWait(self, 1)
+        load_page_xpath = '//*[@id="page-content"]/div/div[2]/div[2]'
+        load_page = self.driver.find_element(By.XPATH, load_page_xpath)
+        button = load_page.find_element(By.TAG_NAME, 'button')
+        while True:
+            try:
+                element = wait.until(EC.element_to_be_clickable(button))
+                element.click()
+            except TimeoutException:
+                break
+
+        # for i in range(10):
+        #     load_page_xpath = '//*[@id="page-content"]/div/div[2]/div[2]'
+        #     load_page = self.driver.find_element(By.XPATH, load_page_xpath)
+        #     button = load_page.find_element(By.TAG_NAME, 'button')
+        #     button.click()
+        #     sleep(2)
     
     def scrape_href(self):
         href_list = []
@@ -120,9 +135,9 @@ class WebDriver():
             href_list.append(href)
             print(len(href_list))
 
-    def obtain_item_type(self):
+    def obtain_product_type(self):
         #item type info is stored in 'breadcrumb_list' element
-        
+        product_catagorisation = []
         breadcrumb_list_xpath = '//*[@id="main-content"]/div[1]/nav/ul'
         breadcrumb_list = self.driver.find_element(By.XPATH, breadcrumb_list_xpath)
         catagory_containers = breadcrumb_list.find_elements(By.TAG_NAME, 'li')
@@ -132,8 +147,9 @@ class WebDriver():
             element = a_tag.find_element(By.TAG_NAME, 'span')
             outer_html = element.get_attribute('outerHTML')
             catagories = regex.search('itemprop="name">(.*)</span>', outer_html).group(1)
-            
-            print(str(catagories))
+            product_catagorisation.append(catagories)
+            print(product_catagorisation)
+
 
 
 
@@ -183,10 +199,10 @@ mens_items = ['Hoodies & Sweatshirts', 'T-Shirts', 'Shirts', 'Jumpers & Knitwear
 feature = ['Price', 'Sizes', 'Colour', 'Brand', 'Discounted', 'Review Score', 'Number of Reviews']
 
 def run_scraper():
-    URL = "https://www2.hm.com/en_gb/productpage.0967440005.html"
+    URL = "https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
-    driver.obtain_item_type()
+    driver.load_more()
     
     # TODO: Be able to navigate to Womens Tops by uncommenting below
     gender = 'womens'
