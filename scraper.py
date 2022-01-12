@@ -97,12 +97,12 @@ class WebDriver():
         products = product_container.find_elements(By.TAG_NAME, 'li')
 
         for product in products:
-            article = product.find_element(By.CLASS_NAME, 'hm-product-item')
-            image_container = article.find_element(By.CLASS_NAME, 'image-container')
-            a_tag = image_container.find_element(By.TAG_NAME, 'a')
+            # article = product.find_element(By.CLASS_NAME, 'hm-product-item')
+            # image_container = article.find_element(By.CLASS_NAME, 'image-container')
+            a_tag = product.find_element(By.TAG_NAME, 'a')
             href = a_tag.get_attribute('href')
             href_list.append(href)
-            print(href_list)
+            #print(href_list)
         return(href_list)
         
 
@@ -112,7 +112,7 @@ class WebDriver():
         product_catagorisation list.   
 
         Returns:
-            None
+            list
         '''
         #item type info is stored in 'breadcrumb_list' element
         product_catagorisation = []
@@ -131,17 +131,17 @@ class WebDriver():
 
 
     def scrape_data(self):
-        product_dict = {}
+        product_list = []
 
         href_list = self.scrape_href()
 
         for href in href_list:
-            self.driver.click(href)
-            value = self.obtain_product_type()
-            item = {[href]:[value]}
-            product_dict.append(item)
-            print(product_dict)
-        return(product_dict)
+            self.driver.get(href)
+            value = self.obtain_product_type() #list
+            item = {href:value}
+            product_list.append(item)
+            print(product_list)
+        return(product_list)
          
 
 
@@ -180,7 +180,7 @@ def run_scraper():
     URL = "https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
-    driver.scrape_href()
+    driver.scrape_data()
     
     # TODO: Be able to navigate to Womens Tops by uncommenting below
     gender = 'womens'
