@@ -4,12 +4,14 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-
-
-
+import urllib
+import urllib.request
+import tempfile
+from tqdm import tqdm
+import boto3
 import re as regex
-
 from time import sleep
+
 
 
 class WebDriver():
@@ -57,54 +59,15 @@ class WebDriver():
         print(type(accept_cookies_button))
         accept_cookies_button.click()
 
-    def navigate_to_menu_bar(self):
-        '''
-        This function navigates to the menu bar container and returns the WebElement
-        '''
-        # TODO: Navigate via xpath to the menu bar container
-        pass
     
-    def navigate_to_the_item_type_page(self, gender, item_type) -> None:
-        '''
-        This function is used to navigate to the menu bar container and open the item_type as specified in the input
-        The driver will move to the new webpage
-
-        Args:
-            gender (str): 'mens' or 'womenscategorise it into '
-            item_type (str): valid item_type that belongs to the mens or womens container
-        
-        Returns:
-            None
-        '''
-        # TODO
-        pass
-    
-    def open_item(self):
-        '''
-        This function will open the item from the item type page
-        The driver will move to the new webpage
-
-        Returns:
-            None
-        '''
-        # TODO
-        pass
-
-    def next_item(self):
-        '''
-        This function will move to the next item from the item type page
-        The driver will move to the new webpage
-
-        Returns:
-            None
-        '''
-        # TODO
-        pass
-
-
-
-
     def load_more(self):
+        '''
+        This function waits for the pressence of the 'load_more' button and clicks indefinitely.
+        A Timeout exception is thrown if the button cannot be found (i.e. at end of page).
+
+        Returns:
+            None
+        '''
         wait = WebDriverWait(self, 1)
         load_page_xpath = '//*[@id="page-content"]/div/div[2]/div[2]'
         load_page = self.driver.find_element(By.XPATH, load_page_xpath)
@@ -116,26 +79,41 @@ class WebDriver():
             except TimeoutException:
                 break
 
-        # for i in range(10):
-        #     load_page_xpath = '//*[@id="page-content"]/div/div[2]/div[2]'
-        #     load_page = self.driver.find_element(By.XPATH, load_page_xpath)
-        #     button = load_page.find_element(By.TAG_NAME, 'button')
-        #     button.click()
-        #     sleep(2)
-    
+
+
     def scrape_href(self):
+        '''
+        This function locates all products in the observable product_container and itterates through, obtaining 
+        all product hrefs. Product hrefs are then appended to href_list. 
+
+        Returns:
+            None
+        '''
         href_list = []
+
+
         product_container_xpath = '//*[@id="page-content"]/div/div[2]/ul'
         product_container = self.driver.find_element(By.XPATH, product_container_xpath)
         products = product_container.find_elements(By.TAG_NAME, 'li')
+
         for product in products:
-            image_container = product.findelement(By.CLASS_NAME, 'image-container')
-            a_tag = image_container.findelement(By.TAG_NAME, 'a')
+            article = product.find_element(By.CLASS_NAME, 'hm-product-item')
+            image_container = article.find_element(By.CLASS_NAME, 'image-container')
+            a_tag = image_container.find_element(By.TAG_NAME, 'a')
             href = a_tag.get_attribute('href')
             href_list.append(href)
-            print(len(href_list))
+            print(href_list)
+        return(href_list)
+        
 
     def obtain_product_type(self):
+        '''
+        This function obtains the product catagorisation from the 'breadcrumb' container and appends it to 
+        product_catagorisation list.   
+
+        Returns:
+            None
+        '''
         #item type info is stored in 'breadcrumb_list' element
         product_catagorisation = []
         breadcrumb_list_xpath = '//*[@id="main-content"]/div[1]/nav/ul'
@@ -148,29 +126,43 @@ class WebDriver():
             outer_html = element.get_attribute('outerHTML')
             catagories = regex.search('itemprop="name">(.*)</span>', outer_html).group(1)
             product_catagorisation.append(catagories)
-            print(product_catagorisation)
+
+        return(product_catagorisation)
 
 
+    def data_scraper(self):
+        product_dict = {}
+
+        href_list = self.scrape_href()
+
+        for href in href_list:
+            self.driver.click(href)
+            value = self.obtain_product_type()
+            item = {[href]:[value]}
+            product_dict.append(item)
+            print(product_dict)
+        return(product_dict)
+         
 
 
+        
 
 
     def download_image(self) -> None:
-        # TODO
-        pass   
+        s3_client = boto3.client('s3')
 
-    def scrape_feature_from_page(self, feature):
-        '''
-        This function will scrape the input feature from the item page
+        image_container = self.driver.find_element(By.CLASS_NAME, 'product-detail-main-image-container')
+        image = image_container.find_element(By.TAG_NAME, 'img')
+        src = image.get_attribute('src')
         
-        Args:
-            feature (str): valid feature item, from a list of features to be scraped
 
-        Returns:
-            TBD
-        '''
-        # TODO
-        pass
+        with tempfile.TemporaryDirectory() as temp_dir:
+            for i, scr in enumerate(tqdm(src)):
+                urllib.request.urlretrieve(scr, f'{temp_dir}/image_{i}.png')
+                s3_client.upload_file(f'{temp_dir}/image_{i}.png', 'urbanoutfittersbucket', f'dest_img_{i}.png')
+
+
+
     
 
 class StoreData():
@@ -184,25 +176,11 @@ class StoreData():
         pass
 
 
-
-
-# List of womens items categories to navigate to, input to a function
-womens_items = ['Tops', 'Hoodies & Sweatshirts', 'Dresses & Jumpsuits', 'Coats & Jackets', 'Knitwear'
-                'Bottoms', 'Jeans', 'Lingerie', 'Loungewear', 'Jewellry & Watches', 'Accessories', 'Shoes']
-
-# List of mens items categories to navigate to, input to a function
-mens_items = ['Hoodies & Sweatshirts', 'T-Shirts', 'Shirts', 'Jumpers & Knitwear', 'Coats & Jackets', 'Trousers'
-                'Jeans', 'Joggers and Track Pants', 'Shorts and Swim', 'Jewellry & Watches',' Hats & Caps', 
-                'Socks', 'Loungewear & Underwear', 'Accessories', 'Shoes']
-
-# List of features to scrape from each item, input to a function
-feature = ['Price', 'Sizes', 'Colour', 'Brand', 'Discounted', 'Review Score', 'Number of Reviews']
-
 def run_scraper():
     URL = "https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
-    driver.load_more()
+    driver.scrape_href()
     
     # TODO: Be able to navigate to Womens Tops by uncommenting below
     gender = 'womens'
