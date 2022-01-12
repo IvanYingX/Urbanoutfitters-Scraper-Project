@@ -130,7 +130,7 @@ class WebDriver():
         return(product_catagorisation)
 
 
-    def data_scraper(self):
+    def scrape_data(self):
         product_dict = {}
 
         href_list = self.scrape_href()
