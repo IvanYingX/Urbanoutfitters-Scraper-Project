@@ -39,41 +39,43 @@ class WebDriver():
         Returns:
             None
         '''
-        # TODO: use a with block to open connection and close when finished
+        prefs = {'profile.managed_default_content_settings.images': 2}
         chrome_options = Options()
         chrome_options.add_experimental_option("detach", True)
+        chrome_options.add_experimental_option('prefs', prefs)
+
         self.driver = webdriver.Chrome(options=chrome_options)
         self.driver.get(self.url)
         self.driver.maximize_window() #maximised window helps reduce the frequency of unclickable elements
-        self.accept_all_cookies()
+        self.accept_cookies()
         
     
-    def accept_all_cookies(self) -> None:
+    def accept_cookies(self, xpath: str='//*[@id="onetrust-accept-btn-handler"]') -> None:
         '''
         This function is used to close the accept cookies pop-up
 
         Returns:
             None
         '''
-        sleep(1) # Ensure the webpage has fully loaded first
-        accept_cookies_button = self.driver.find_element(By.XPATH, '//*[@id="onetrust-accept-btn-handler"]')
-        print(type(accept_cookies_button))
-        accept_cookies_button.click()
+        accept_cookies_xpath = xpath
+        try:
+            button = self.driver.find_element(By.XPATH, accept_cookies_xpath)
+            WebDriverWait(self.driver, 5).until(EC.element_to_be_clickable(button)).click()
+        except:
+            pass
 
 
-    def load_more(self):
+    def load_more(self, xpath: str='//*[@id="page-content"]/div/div[2]/div[2]'):
         '''
         This function waits for the pressence of the 'load_more' button and clicks using actionchains to avoid 
         "Element is not clickable" error.
-
-
         Returns:
             None
         '''
         long_wait = WebDriverWait(self, 10)
         short_wait = WebDriverWait(self, 1)
 
-        load_page_xpath = '//*[@id="page-content"]/div/div[2]/div[2]'
+        load_page_xpath = xpath
         load_page = self.driver.find_element(By.XPATH, load_page_xpath)
         button = load_page.find_element(By.TAG_NAME, 'button')
         element = long_wait.until(EC.element_to_be_clickable(button))
@@ -81,7 +83,7 @@ class WebDriver():
         actionChains.context_click(element).click().perform()
 
 
-    def check_scraper_ready(self):
+    def check_scraper_ready(self, xpath: str='//*[@id="page-content"]/div/div[2]/div[2]/h2'):
         '''
         This function obtains the number of items visible to the driver and the total number of items. 
         If all possible items are shown, then scraper is ready, returns True. 
@@ -89,8 +91,8 @@ class WebDriver():
         Returns:
             Bool
         '''
-
-        load_more_element = self.driver.find_element(By.XPATH, '//*[@id="page-content"]/div/div[2]/div[2]/h2')
+        load_more_xpath = xpath
+        load_more_element = self.driver.find_element(By.XPATH, load_more_xpath)
         items_shown = load_more_element.get_attribute('data-items-shown')
         total_items = load_more_element.get_attribute('data-total')
 
@@ -105,7 +107,7 @@ class WebDriver():
             return False        
 
 
-    def obtain_product_href(self):
+    def obtain_product_href(self, xpath: str='//*[@id="page-content"]/div/div[2]/ul'):
         '''
         This function locates all products in the observable product_container and itterates through, obtaining 
         all product hrefs. Product hrefs are then appended to href_list. 
@@ -114,7 +116,7 @@ class WebDriver():
             List
         '''
         href_list = []
-        product_container_xpath = '//*[@id="page-content"]/div/div[2]/ul'
+        product_container_xpath = xpath
         product_container = self.driver.find_element(By.XPATH, product_container_xpath)
         products = product_container.find_elements(By.TAG_NAME, 'li')
 
@@ -148,6 +150,20 @@ class WebDriver():
 
         return(product_catagorisation)
 
+    
+    def obtain_product_price(self, xpath: str='//*[@id="product-price"]/div/span') -> str:
+        '''
+        This function locates the price element on product page from the outerHTML and returns a cleaned string.
+
+        Returns:
+            Str
+        '''
+        price_xpath = xpath
+        price = self.driver.find_element(By.XPATH, price_xpath)
+        outer_html = price.get_attribute('outerHTML')
+        price = regex.search('>(.*)</span>', outer_html).group(1)
+        return price
+
 
     def scrape_all(self):
         '''
@@ -161,24 +177,8 @@ class WebDriver():
         For the driver to run quickly and efficiently, all pages should be loaded before proceeding with other functions. 
         '''
 
-        # It currently takes about 4 seconds for the driver to visit and obtain product information 
-        # from one item and go to the next. 
-        # For H&M's 10000 items it would take 11 hours to complete. 
-        # Needs to be faster.
-
         product_list = []
         prompt = self.check_scraper_ready() 
-
-        # Atm the terminal output is not as expected. Expected output is:
-        # The number of items visible is 36
-        # Scraper is not ready
-        # The number of items visible is 72
-        # Scraper is not ready
-        # The number of items visible is 108
-        # Scraper is ready 
-        # 1
-        # 2
-        # etc 
 
         while prompt is False: # See line 102, atm the scraper should be ready to proceed when > 100 items are visible. 
             self.load_more()
