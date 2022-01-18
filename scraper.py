@@ -184,7 +184,29 @@ class WebDriver():
         return src
 
 
-    
+    def obtain_product_sizes(self, xpath: str='//*[@id="picker-1"]/ul') -> list:
+        '''
+        This function locates the element containing all product sizes. The container is then iterated through, 
+        ignoring the first and last elements which are not sizes. The sizes are obtained from the elements' outerHTML
+        and appended to the sizes list. 
+
+        Returns:
+            list
+        '''
+        sizes_xpath = xpath
+        sizes = []
+        container = self.driver.find_element(By.XPATH, sizes_xpath)
+        elements = container.find_elements(By.TAG_NAME, 'li')
+        for element in elements [1:len(elements)-1]:
+            span = element.find_element(By.TAG_NAME, 'span')
+            outer_html = span.get_attribute('outerHTML')
+            size = regex.search('>(.*)</span>', outer_html).group(1)
+            sizes.append(size)
+        return sizes
+
+
+
+
 
 
     def scrape_all(self):
@@ -257,10 +279,11 @@ class StoreData():
 
 
 def run_scraper():
-    URL = "https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html"
+    URL = 'https://www2.hm.com/en_gb/productpage.1019417008.html'
+    #URL = "https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
-    driver.scrape_all()
+    driver.obtain_product_sizes()
     
 
 
