@@ -151,7 +151,7 @@ class WebDriver():
         return(product_catagorisation)
 
     
-    def obtain_product_price(self, xpath: str='//*[@id="product-price"]/div/span') -> str:
+    def obtain_product_price(self, xpath: str='//*[@id="product-price"]/div/span', xpath_reduced: str='//*[@id="product-price"]/div/div[1]/span') -> str:
         '''
         This function locates the price element on product page from the outerHTML and returns a cleaned string.
 
@@ -159,10 +159,32 @@ class WebDriver():
             Str
         '''
         price_xpath = xpath
-        price = self.driver.find_element(By.XPATH, price_xpath)
-        outer_html = price.get_attribute('outerHTML')
-        price = regex.search('>(.*)</span>', outer_html).group(1)
+        reduced_price_xpath = xpath_reduced
+        try:
+            price = self.driver.find_element(By.XPATH, price_xpath)
+            outer_html = price.get_attribute('outerHTML')
+            price = regex.search('>(.*)</span>', outer_html).group(1)
+        except:#if the price is reduced, the element is contained in a seperate xpath
+            price = self.driver.find_element(By.XPATH, reduced_price_xpath)
+            outer_html = price.get_attribute('outerHTML')
+            price = regex.search('>(.*)</span>', outer_html).group(1)
         return price
+
+
+    def obtain_image_src(self, xpath: str='//*[@id="main-content"]/div[2]/div[2]/div[1]/figure[1]/div/img') -> str:
+        '''
+        This function locates the first image element and returns the src attribute. 
+
+        Returns:
+            Str
+        '''
+        image_xpath = xpath
+        image = self.driver.find_element(By.XPATH, image_xpath)
+        src = image.get_attribute('src')
+        return src
+
+
+    
 
 
     def scrape_all(self):
