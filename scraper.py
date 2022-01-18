@@ -169,7 +169,7 @@ class WebDriver():
         return price
 
 
-    def obtain_product_detail(self, button_xpath: str='//*[@id="main-content"]/div[2]/div[2]/div[2]/menu/ul/li[1]/button',
+    def obtain_product_details(self, button_xpath: str='//*[@id="main-content"]/div[2]/div[2]/div[2]/menu/ul/li[1]/button',
         xpath: str='//*[@id="side-drawer-2"]/div/div/div/dl') -> dict:
         '''
         This function first locates the details button element and clicks. The elements containing product details are then 
@@ -183,9 +183,7 @@ class WebDriver():
         button_xpath = button_xpath
         button = self.driver.find_element(By.XPATH, button_xpath)
         WebDriverWait(self.driver, 5).until(EC.element_to_be_clickable(button)).click()
-
         details_dict = {}
-
         details_xpath = xpath
         details = self.driver.find_element(By.XPATH, details_xpath)
         elements = details.find_elements(By.TAG_NAME, 'div') 
@@ -195,23 +193,12 @@ class WebDriver():
             key = regex.search('>(.*)</dt>', detail_outer_html).group(1)
             comments = []
             values = element.find_elements(By.TAG_NAME, 'dd')
-
             for value in values:
                 outer_html = value.get_attribute('outerHTML')
                 comment = regex.search('>(.*)</dd>', outer_html).group(1)
                 comments.append(comment)
-
             details_dict.update({key:comments})
         return details_dict
-        
-            
-            
-
-            
-            
-
-
-
 
 
     def obtain_image_src(self, xpath: str='//*[@id="main-content"]/div[2]/div[2]/div[1]/figure[1]/div/img') -> str:
@@ -246,6 +233,25 @@ class WebDriver():
             size = regex.search('>(.*)</span>', outer_html).group(1)
             sizes.append(size)
         return sizes
+
+
+    def scrape_product(self) -> dict:
+        '''
+        This function calls all product specific methods to obtain all product data. The data is then stored in a 
+        dictionary. 
+
+        Returns:
+            dict
+        '''
+        product_type = self.obtain_product_type()
+        product_name = product_type[len(product_type)-1]
+        product_price = self.obtain_product_price()
+        product_details = self.obtain_product_details()
+        image_src = self.obtain_image_src()
+        product_dict = {'Product':product_name, 'Product Type':product_type, 'Price':product_price, 'SRC':image_src}
+        product_dict.update(product_details)
+        print(product_dict)
+        return product_dict
 
 
 
@@ -326,7 +332,7 @@ def run_scraper():
     #URL = "https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
-    driver.obtain_product_detail()
+    driver.scrape_product()
     
 
 
