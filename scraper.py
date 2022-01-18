@@ -97,7 +97,7 @@ class WebDriver():
         x = int(items_shown)
         y = int(total_items)
         print(f'The number of items visible is {x}')
-        if x > 100: #currently using placeholder number for testing
+        if x > 10: #currently using placeholder number for testing
             print('Scraper is ready')
             return True 
         else:
@@ -254,11 +254,7 @@ class WebDriver():
         return product_dict
 
 
-
-
-
-
-    def scrape_all(self):
+    def scrape_page(self):
         '''
         This function obtains a prompt from self.check_scraper_ready(), if prompt is False, more pages are loaded. 
         If prompt is True, self.scrape_href() then iterate through href_list and self.obtain_product_type(). 
@@ -269,23 +265,21 @@ class WebDriver():
         
         For the driver to run quickly and efficiently, all pages should be loaded before proceeding with other functions. 
         '''
-
-        product_list = []
         prompt = self.check_scraper_ready() 
-
         while prompt is False: # See line 102, atm the scraper should be ready to proceed when > 100 items are visible. 
             self.load_more()
             prompt = self.check_scraper_ready() 
-
         while prompt is True:
+            page_dict = {}
             href_list = self.obtain_product_href()
-
             for href in href_list:
                 self.driver.get(href)
-                value = self.obtain_product_type() 
-                item = {href:value}
-                product_list.append(item)
-                print(len(product_list))
+                product_dict = self.scrape_product()
+                product_id = product_dict.get('Art. No.')
+                page_dict.update({product_id[0]:product_dict})
+        print(page_dict)
+        return page_dict
+
     
 
     def download_image(self) -> None:
@@ -328,11 +322,11 @@ class StoreData():
 
 
 def run_scraper():
-    URL = 'https://www2.hm.com/en_gb/productpage.1019417008.html'
-    #URL = "https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html"
+    #URL = 'https://www2.hm.com/en_gb/productpage.1019417008.html'
+    URL = "https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
-    driver.scrape_product()
+    driver.scrape_page()
     
 
 
