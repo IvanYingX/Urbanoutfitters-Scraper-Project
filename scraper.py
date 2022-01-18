@@ -73,8 +73,6 @@ class WebDriver():
             None
         '''
         long_wait = WebDriverWait(self, 10)
-        short_wait = WebDriverWait(self, 1)
-
         load_page_xpath = xpath
         load_page = self.driver.find_element(By.XPATH, load_page_xpath)
         button = load_page.find_element(By.TAG_NAME, 'button')
@@ -169,6 +167,51 @@ class WebDriver():
             outer_html = price.get_attribute('outerHTML')
             price = regex.search('>(.*)</span>', outer_html).group(1)
         return price
+
+
+    def obtain_product_detail(self, button_xpath: str='//*[@id="main-content"]/div[2]/div[2]/div[2]/menu/ul/li[1]/button',
+        xpath: str='//*[@id="side-drawer-2"]/div/div/div/dl') -> dict:
+        '''
+        This function first locates the details button element and clicks. The elements containing product details are then 
+        located and iterated through. Key's are obtained from the outerHTML of the dt tag. Values are obtained from the 
+        outerHTML of the dd tags. One dt tag can have multiple dd children and so the dd elements are looped through to obtain
+        each value, values then append to a list. Key:values pairs are then appended the product details_dict.
+
+        Returns:
+            dict
+        '''
+        button_xpath = button_xpath
+        button = self.driver.find_element(By.XPATH, button_xpath)
+        WebDriverWait(self.driver, 5).until(EC.element_to_be_clickable(button)).click()
+
+        details_dict = {}
+
+        details_xpath = xpath
+        details = self.driver.find_element(By.XPATH, details_xpath)
+        elements = details.find_elements(By.TAG_NAME, 'div') 
+        for element in elements:
+            detail = element.find_element(By.TAG_NAME, 'dt')
+            detail_outer_html = detail.get_attribute('outerHTML')
+            key = regex.search('>(.*)</dt>', detail_outer_html).group(1)
+            comments = []
+            values = element.find_elements(By.TAG_NAME, 'dd')
+
+            for value in values:
+                outer_html = value.get_attribute('outerHTML')
+                comment = regex.search('>(.*)</dd>', outer_html).group(1)
+                comments.append(comment)
+
+            details_dict.update({key:comments})
+        return details_dict
+        
+            
+            
+
+            
+            
+
+
+
 
 
     def obtain_image_src(self, xpath: str='//*[@id="main-content"]/div[2]/div[2]/div[1]/figure[1]/div/img') -> str:
@@ -283,7 +326,7 @@ def run_scraper():
     #URL = "https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
-    driver.obtain_product_sizes()
+    driver.obtain_product_detail()
     
 
 
