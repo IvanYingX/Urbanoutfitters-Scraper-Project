@@ -13,7 +13,7 @@ from sklearn.feature_extraction import image
 from tqdm import tqdm
 import boto3
 import re as regex
-from time import sleep
+import time
 import json
 
 class WebDriver():
@@ -65,6 +65,28 @@ class WebDriver():
         except:
             pass
 
+    
+    def navigate_to_male(self, html: str='https://www2.hm.com/en_gb/men/shop-by-product/view-all.html'):
+        '''
+        This function navigates to the all products male page.
+
+        Returns:
+            None
+        '''
+        male_html = html
+        self.driver.get(male_html)
+
+    
+    def navigate_to_female(self, html: str='https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html'):
+        '''
+        This function navigates to the all products female page.
+
+        Returns:
+            None
+        '''
+        female_html = html
+        self.driver.get(female_html)
+
 
     def load_more(self, xpath: str='//*[@id="page-content"]/div/div[2]/div[2]'):
         '''
@@ -82,7 +104,7 @@ class WebDriver():
         actionChains.context_click(element).click().perform()
 
 
-    def check_scraper_ready(self, xpath: str='//*[@id="page-content"]/div/div[2]/div[2]/h2'):
+    def check_scraper_ready(self, amount_to_scrape: int= 10, xpath: str='//*[@id="page-content"]/div/div[2]/div[2]/h2'):
         '''
         This function obtains the number of items visible to the driver and the total number of items. 
         If all possible items are shown, then scraper is ready, returns True. 
@@ -93,14 +115,13 @@ class WebDriver():
         load_more_xpath = xpath
         load_more_element = self.driver.find_element(By.XPATH, load_more_xpath)
         items_shown = load_more_element.get_attribute('data-items-shown')
-        total_items = load_more_element.get_attribute('data-total')
 
         x = int(items_shown)
-        y = int(total_items)
+        y = amount_to_scrape
         print(f'The number of items visible is {x}')
-        if x > 10: #currently using placeholder number for testing
+        if x > y: #currently using placeholder number for testing
             print('Scraper is ready')
-            return True 
+            return True except
         else:
             print('Scraper is not ready')
             return False        
@@ -119,7 +140,7 @@ class WebDriver():
         product_container = self.driver.find_element(By.XPATH, product_container_xpath)
         products = product_container.find_elements(By.TAG_NAME, 'li')
 
-        for product in products[:10]:
+        for product in products:
             a_tag = product.find_element(By.TAG_NAME, 'a')
             href = a_tag.get_attribute('href')
             href_list.append(href)
@@ -140,7 +161,7 @@ class WebDriver():
         breadcrumb_list = self.driver.find_element(By.XPATH, breadcrumb_list_xpath)
         catagory_containers = breadcrumb_list.find_elements(By.TAG_NAME, 'li')
 
-        for catagory in catagory_containers:
+        for catagory in catagory_containers[1:]:
             a_tag = catagory.find_element(By.TAG_NAME, 'a')
             element = a_tag.find_element(By.TAG_NAME, 'span')
             outer_html = element.get_attribute('outerHTML')
@@ -153,7 +174,7 @@ class WebDriver():
     def obtain_product_price(self, xpath: str='//*[@id="product-price"]/div/span', xpath_reduced: str='//*[@id="product-price"]/div/div[1]/span') -> str:
         '''
         This function locates the price element on product page from the outerHTML and returns a cleaned string.
-
+        
         Returns:
             Str
         '''
@@ -171,7 +192,8 @@ class WebDriver():
 
 
     def obtain_product_details(self, button_xpath: str='//*[@id="main-content"]/div[2]/div[2]/div[2]/menu/ul/li[1]/button',
-        xpath_1: str='//*[@id="side-drawer-2"]/div/div/div/dl', xpath_2: str='//*[@id="side-drawer-3"]/div/div/div/dl') -> dict:
+        xpath_1: str='//*[@id="side-drawer-2"]/div/div/div/dl', xpath_2: str='//*[@id="side-drawer-3"]/div/div/div/dl', 
+        xpath_3: str='//*[@id="side-drawer-4"]/div/div/div/dl', xpath_4: str='//*[@id="side-drawer-5"]/div/div/div/dl') -> dict:
         '''
         This function first locates the details button element and clicks. The elements containing product details are then 
         located and iterated through. Key's are obtained from the outerHTML of the dt tag. Values are obtained from the 
@@ -187,11 +209,13 @@ class WebDriver():
         details_dict = {}
         details_xpath_1 = xpath_1
         details_xpath_2 = xpath_2
-
+        details_xpath_3 = xpath_3
+        details_xpath_4 = xpath_4
         try:
             details = self.driver.find_element(By.XPATH, details_xpath_1)
         except:
             details = self.driver.find_element(By.XPATH, details_xpath_2)
+        
 
         elements = details.find_elements(By.TAG_NAME, 'div') 
         for element in elements:
@@ -260,7 +284,7 @@ class WebDriver():
         return product_dict
 
 
-    def scrape_page(self):
+    def scrape_gender(self):
         '''
         This function obtains a prompt from self.check_scraper_ready(), if prompt is False, more pages are loaded. 
         If prompt is True, self.scrape_href() then iterate through href_list and self.obtain_product_type(). 
@@ -275,11 +299,10 @@ class WebDriver():
         # this function causes errors when the page finishes scraping, the program attempts to obtain all product
         # hrefs again after scraping.
 
-        # prompt = self.check_scraper_ready() 
-        # while prompt is False: # See line 102, atm the scraper should be ready to proceed when > 100 items are visible. 
-        #     self.load_more()
-        #     prompt = self.check_scraper_ready() 
-        # while prompt is True:
+        prompt = self.check_scraper_ready() 
+        while prompt is False: 
+            self.load_more()
+            prompt = self.check_scraper_ready() 
 
         page_dict = {}
         href_list = self.obtain_product_href()
@@ -291,13 +314,37 @@ class WebDriver():
             with open(f"{product_id}.json", 'w') as fp:
                 json.dump(product_dict, fp)
                 product_id = product_dict.get('Art. No.')
-
-
             page_dict.update({product_id[0]:product_dict})
+        return page_dict
+        
 
+
+    def scrape_all(self):
+        '''
+        This function calls self.scrape_gender(), upon completion of this operation, the function
+        to navigate to the next gender is called and commences self.scape_gender() again.
+
+        Returns:
+            None
+        '''
+        start = time.time()
+        print(start)
+        #scrape female
+        self.navigate_to_female()
+        female_page_dict = self.scrape_gender()
         # write the page dictionary to a JSON file.  
-        with open(f"page_dict.json", 'w') as fp:
-            json.dump(page_dict, fp)
+        with open(f"female_page_dict.json", 'w') as fp:
+            json.dump(female_page_dict, fp)
+
+        #scrape male
+        self.navigate_to_male()
+        male_page_dict = self.scrape_gender()
+        # write the page dictionary to a JSON file.  
+        with open(f"male_page_dict.json", 'w') as fp:
+            json.dump(male_page_dict, fp)
+
+        end = time.time()
+        print(end - start)
 
     
 class StoreData():
@@ -360,13 +407,12 @@ class StoreData():
 
 
 def run_scraper():
-    #URL = 'https://www2.hm.com/en_gb/productpage.1019417008.html'
-    URL = "https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html"
+    URL = "https://www2.hm.com/en_gb/index.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
-    driver.scrape_page()
+    driver.scrape_all()
     
-    
+
 if __name__ == '__main__':
     run_scraper()
 
