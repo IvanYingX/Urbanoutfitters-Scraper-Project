@@ -280,28 +280,26 @@ class WebDriver():
         #     self.load_more()
         #     prompt = self.check_scraper_ready() 
         # while prompt is True:
-        
+
         page_dict = {}
         href_list = self.obtain_product_href()
         for href in href_list:
             self.driver.get(href)
             product_dict = self.scrape_product()
-            product_id = product_dict.get('Art. No.')
+            # write the product dictionary to a JSON file.
+            product_id = product_dict.get('Art. No.')[0]
+            with open(f"{product_id}.json", 'w') as fp:
+                json.dump(product_dict, fp)
+                product_id = product_dict.get('Art. No.')
+
+
             page_dict.update({product_id[0]:product_dict})
-            
-        return page_dict
 
+        # write the page dictionary to a JSON file.  
+        with open(f"page_dict.json", 'w') as fp:
+            json.dump(page_dict, fp)
 
-        
-    def page_dict_to_json(self):
-            '''
-            
-            '''
-            page_dict = self.scrape_page()
-            with open(f"page_dict.json", 'w') as fp:
-                json.dump(page_dict, fp)
-
-
+    
 class StoreData():
     '''
     This class is used to interact with the S3 Bucket and store the scraped images and features.
@@ -366,14 +364,12 @@ def run_scraper():
     URL = "https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
-    driver.page_dict_to_json()
+    driver.scrape_page()
     
+    
+if __name__ == '__main__':
+    run_scraper()
 
-
-
-# if __name__ == '__main__':
-#     run_scraper()
-
-StoreData.upload_image_to_datalake()
+#StoreData.upload_image_to_datalake()
 
 
