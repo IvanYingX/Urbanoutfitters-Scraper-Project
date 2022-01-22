@@ -10,6 +10,7 @@ import urllib
 import urllib.request
 import tempfile
 from sklearn.feature_extraction import image
+from sqlalchemy import Boolean
 from tqdm import tqdm
 import boto3
 import re as regex
@@ -66,9 +67,9 @@ class WebDriver():
             pass
 
     
-    def navigate_to_male(self, html: str='https://www2.hm.com/en_gb/men/shop-by-product/view-all.html'):
+    def navigate_to_male(self, html: str='https://www2.hm.com/en_gb/men/shop-by-product/view-all.html') -> None:
         '''
-        This function navigates to the all products male page.
+        This function 'navigates' to the all products male page.
 
         Returns:
             None
@@ -77,7 +78,7 @@ class WebDriver():
         self.driver.get(male_html)
 
     
-    def navigate_to_female(self, html: str='https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html'):
+    def navigate_to_female(self, html: str='https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html') -> None:
         '''
         This function navigates to the all products female page.
 
@@ -88,10 +89,11 @@ class WebDriver():
         self.driver.get(female_html)
 
 
-    def load_more(self, xpath: str='//*[@id="page-content"]/div/div[2]/div[2]'):
+    def load_more(self, xpath: str='//*[@id="page-content"]/div/div[2]/div[2]') -> None:
         '''
         This function waits for the pressence of the 'load_more' button and clicks using actionchains to avoid 
         "Element is not clickable" error.
+
         Returns:
             None
         '''
@@ -104,7 +106,7 @@ class WebDriver():
         actionChains.context_click(element).click().perform()
 
 
-    def check_scraper_ready(self, amount_to_scrape: int= 10, xpath: str='//*[@id="page-content"]/div/div[2]/div[2]/h2'):
+    def check_scraper_ready(self, amount_to_scrape: int= 10, xpath: str='//*[@id="page-content"]/div/div[2]/div[2]/h2') -> bool:
         '''
         This function obtains the number of items visible to the driver. 
         If the number of visible items exceeds the desired amount of items to scrape, returns True. 
@@ -125,7 +127,7 @@ class WebDriver():
             return False        
 
 
-    def obtain_product_href(self, xpath: str='//*[@id="page-content"]/div/div[2]/ul'):
+    def obtain_product_href(self, xpath: str='//*[@id="page-content"]/div/div[2]/ul') -> list:
         '''
         This function locates all products in the observable product_container and itterates through, obtaining 
         all product hrefs. Product hrefs are then appended to href_list. 
@@ -151,7 +153,7 @@ class WebDriver():
         return(href_list)
         
 
-    def obtain_product_type(self):
+    def obtain_product_type(self) -> list:
         '''
         This function obtains the product catagorisation from the 'breadcrumb' container and appends it to 
         product_catagorisation list.  
@@ -281,7 +283,7 @@ class WebDriver():
         dictionary. 
 
         Returns:
-            dict
+            Dict
         '''
         product_type = self.obtain_product_type()
         product_name = product_type[len(product_type)-1]
@@ -293,24 +295,20 @@ class WebDriver():
         return product_dict
 
 
-    def scrape_gender(self):
+    def scrape_gender(self) -> dict:
         '''
-        This function obtains a prompt from self.check_scraper_ready(), if prompt is False, more pages are loaded. 
-        If prompt is True, self.scrape_href() then iterate through href_list and self.obtain_product_type(). 
+        This function obtains a prompt from self.check_scraper_ready(), while prompt is False, more pages are loaded. 
+        Then iterate through href_list and self.obtain_product_type(). 
 
-        The reason for structuring the code this way is as follows: 
-        Unless all desired pages are loaded before scraping, the driver will try to locate elements which it has already
-        located and perform self.obtain_product_href() and self.obtain_product_type() on the same items over and over.
-        
-        For the driver to run quickly and efficiently, all pages should be loaded before proceeding with other functions. 
+        For the driver to run quickly and efficiently, all desired pages should be loaded before proceeding with other functions. 
+
+        Returns:
+            dict
         '''
-
-        # this function causes errors when the page finishes scraping, the program attempts to obtain all product
-        # hrefs again after scraping.
-
         prompt = self.check_scraper_ready() 
         while prompt is False: 
             self.load_more()
+            # need to call check_scraper_ready() again to update the prompt.
             prompt = self.check_scraper_ready() 
 
         page_dict = {}
@@ -328,10 +326,12 @@ class WebDriver():
         
 
 
-    def scrape_all(self):
+    def scrape_all(self) -> None:
         '''
         This function calls self.scrape_gender(), upon completion of this operation, the function
-        to navigate to the next gender is called and commences self.scape_gender() again.
+        to navigate to the next gender is called and commences self.scape_gender() again. 
+        
+        NOTE: time.time() IS USED TO TIME THE PROCESS FOR OPTIMISATION.
 
         Returns:
             None
@@ -359,17 +359,17 @@ class WebDriver():
 class StoreData():
     '''
     This class is used to interact with the S3 Bucket and store the scraped images and features.
-
-    Returns:
-        None
     '''
     def __init__(self) -> None:
         pass
 
-    def upload_image_to_datalake():
+    def upload_image_to_datalake() -> None:
         '''
         This function obtains both an image SRC and ID from the page_dict.json file. A tempory directory is constructed and 
         each SRC is accesses, downloaded and then uploaded to the S3 bucket using the ID as a file name. 
+
+        TODO: TIDY THIS CODE, LOOKS SHITTY.
+        TODO: IMPORT THE PRIVATE CREDENTIALS VIA FILE FORMATE FOR SECURITY
 
         Returns:
             None
@@ -383,9 +383,7 @@ class StoreData():
         for (a,b) in zip(image_id_list, src_list):
             image = (a,b)
             image_list.append(image)
-        print(image_list)
 
-        #TODO import the private credentials via file format for security purposes
         session = boto3.Session( 
         aws_access_key_id='AKIA3E73GVKXZ5IQTHWG',
         aws_secret_access_key='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'
