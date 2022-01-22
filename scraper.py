@@ -9,12 +9,12 @@ from selenium.webdriver import ActionChains
 import urllib
 import urllib.request
 import tempfile
+from sklearn.feature_extraction import image
 from tqdm import tqdm
 import boto3
 import re as regex
 from time import sleep
-
-
+import json
 
 class WebDriver():
     '''
@@ -40,6 +40,7 @@ class WebDriver():
             None
         '''
         prefs = {'profile.managed_default_content_settings.images': 2}
+        
         chrome_options = Options()
         chrome_options.add_experimental_option("detach", True)
         chrome_options.add_experimental_option('prefs', prefs)
@@ -118,7 +119,7 @@ class WebDriver():
         product_container = self.driver.find_element(By.XPATH, product_container_xpath)
         products = product_container.find_elements(By.TAG_NAME, 'li')
 
-        for product in products:
+        for product in products[:10]:
             a_tag = product.find_element(By.TAG_NAME, 'a')
             href = a_tag.get_attribute('href')
             href_list.append(href)
@@ -170,7 +171,7 @@ class WebDriver():
 
 
     def obtain_product_details(self, button_xpath: str='//*[@id="main-content"]/div[2]/div[2]/div[2]/menu/ul/li[1]/button',
-        xpath: str='//*[@id="side-drawer-2"]/div/div/div/dl') -> dict:
+        xpath_1: str='//*[@id="side-drawer-2"]/div/div/div/dl', xpath_2: str='//*[@id="side-drawer-3"]/div/div/div/dl') -> dict:
         '''
         This function first locates the details button element and clicks. The elements containing product details are then 
         located and iterated through. Key's are obtained from the outerHTML of the dt tag. Values are obtained from the 
@@ -184,8 +185,14 @@ class WebDriver():
         button = self.driver.find_element(By.XPATH, button_xpath)
         WebDriverWait(self.driver, 5).until(EC.element_to_be_clickable(button)).click()
         details_dict = {}
-        details_xpath = xpath
-        details = self.driver.find_element(By.XPATH, details_xpath)
+        details_xpath_1 = xpath_1
+        details_xpath_2 = xpath_2
+
+        try:
+            details = self.driver.find_element(By.XPATH, details_xpath_1)
+        except:
+            details = self.driver.find_element(By.XPATH, details_xpath_2)
+
         elements = details.find_elements(By.TAG_NAME, 'div') 
         for element in elements:
             detail = element.find_element(By.TAG_NAME, 'dt')
@@ -250,7 +257,6 @@ class WebDriver():
         image_src = self.obtain_image_src()
         product_dict = {'Product':product_name, 'Product Type':product_type, 'Price':product_price, 'SRC':image_src}
         product_dict.update(product_details)
-        print(product_dict)
         return product_dict
 
 
@@ -265,57 +271,91 @@ class WebDriver():
         
         For the driver to run quickly and efficiently, all pages should be loaded before proceeding with other functions. 
         '''
-        prompt = self.check_scraper_ready() 
-        while prompt is False: # See line 102, atm the scraper should be ready to proceed when > 100 items are visible. 
-            self.load_more()
-            prompt = self.check_scraper_ready() 
-        while prompt is True:
-            page_dict = {}
-            href_list = self.obtain_product_href()
-            for href in href_list:
-                self.driver.get(href)
-                product_dict = self.scrape_product()
-                product_id = product_dict.get('Art. No.')
-                page_dict.update({product_id[0]:product_dict})
-        print(page_dict)
+
+        # this function causes errors when the page finishes scraping, the program attempts to obtain all product
+        # hrefs again after scraping.
+
+        # prompt = self.check_scraper_ready() 
+        # while prompt is False: # See line 102, atm the scraper should be ready to proceed when > 100 items are visible. 
+        #     self.load_more()
+        #     prompt = self.check_scraper_ready() 
+        # while prompt is True:
+        
+        page_dict = {}
+        href_list = self.obtain_product_href()
+        for href in href_list:
+            self.driver.get(href)
+            product_dict = self.scrape_product()
+            product_id = product_dict.get('Art. No.')
+            page_dict.update({product_id[0]:product_dict})
+            
         return page_dict
 
-    
 
-    def download_image(self) -> None:
-        '''
-        This function obtains image src from item page.  INCOMPLETE
-        '''
-
-        # s3_client = boto3.client('s3')
-
-        # image_container = self.driver.find_element(By.CLASS_NAME, 'product-detail-main-image-container')
-        # image = image_container.find_element(By.TAG_NAME, 'img')
-        # src = image.get_attribute('src')
         
+    def page_dict_to_json(self):
+            '''
+            
+            '''
+            page_dict = self.scrape_page()
+            with open(f"page_dict.json", 'w') as fp:
+                json.dump(page_dict, fp)
 
-        # with tempfile.TemporaryDirectory() as temp_dir:
-        #     for i, scr in enumerate(tqdm(src)):
-        #         urllib.request.urlretrieve(scr, f'{temp_dir}/image_{i}.png')
-        #         s3_client.upload_file(f'{temp_dir}/image_{i}.png', 'urbanoutfittersbucket', f'dest_img_{i}.png')
-
-
-
-
-
-
-    
 
 class StoreData():
     '''
-    This class is used to interact with the S3 Bucket and store the scraped images and features
+    This class is used to interact with the S3 Bucket and store the scraped images and features.
+
+    Returns:
+        None
     '''
     def __init__(self) -> None:
         pass
 
-    def upload_image_to_datalake(self):
-        pass
+    def upload_image_to_datalake():
+        '''
+        This function obtains both an image SRC and ID from the page_dict.json file. A tempory directory is constructed and 
+        each SRC is accesses, downloaded and then uploaded to the S3 bucket using the ID as a file name. 
 
+        Returns:
+            None
+        '''
+        with open('page_dict.json') as json_file:
+            page_dict = json.load(json_file)
+        key = "SRC"
+        src_list = [sub[key] for sub in page_dict.values() if key in sub.keys()]
+        image_id_list = list(page_dict.keys())
+        image_list = []
+        for (a,b) in zip(image_id_list, src_list):
+            image = (a,b)
+            image_list.append(image)
+        print(image_list)
+
+        #TODO import the private credentials via file format for security purposes
+        session = boto3.Session( 
+        aws_access_key_id='AKIA3E73GVKXZ5IQTHWG',
+        aws_secret_access_key='cUy4Gb/EJ8DqtRqCGN/gk1ZrhZG/yz4Ve98XWsdI'
+        )
+        s3 = session.client('s3')
+        # Create a temporary directory, so you don't store images in your local machine
+        with tempfile.TemporaryDirectory() as temp_dir:
+            for i, image in enumerate(tqdm(image_list)):
+                # headers allow bypass of the website security restrictions
+                headers={'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
+                'Accept-Encoding': 'none',
+                'Accept-Language': 'en-US,en;q=0.8',
+                'Connection': 'keep-alive'}
+                id = image[0]
+                src = image[1]
+
+                request_ = urllib.request.Request(src,None,headers) #The assembled request
+                response = urllib.request.urlopen(request_)# store the response
+                f = open(f'{temp_dir}/image_{i}.jpg','wb')
+                f.write(response.read())           
+                s3.upload_file(f'{temp_dir}/image_{i}.jpg', 'urbanoutfittersbucket', f'{id}.jpg')
+        
 
 
 
@@ -326,13 +366,14 @@ def run_scraper():
     URL = "https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
-    driver.scrape_page()
+    driver.page_dict_to_json()
     
 
 
 
-if __name__ == '__main__':
-    run_scraper()
+# if __name__ == '__main__':
+#     run_scraper()
 
+StoreData.upload_image_to_datalake()
 
 
