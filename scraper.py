@@ -121,7 +121,7 @@ class WebDriver():
         print(f'The number of items visible is {x}')
         if x > y: #currently using placeholder number for testing
             print('Scraper is ready')
-            return True except
+            return True 
         else:
             print('Scraper is not ready')
             return False        
@@ -191,9 +191,7 @@ class WebDriver():
         return price
 
 
-    def obtain_product_details(self, button_xpath: str='//*[@id="main-content"]/div[2]/div[2]/div[2]/menu/ul/li[1]/button',
-        xpath_1: str='//*[@id="side-drawer-2"]/div/div/div/dl', xpath_2: str='//*[@id="side-drawer-3"]/div/div/div/dl', 
-        xpath_3: str='//*[@id="side-drawer-4"]/div/div/div/dl', xpath_4: str='//*[@id="side-drawer-5"]/div/div/div/dl') -> dict:
+    def obtain_product_details(self, button_xpath: str='//*[@id="main-content"]/div[2]/div[2]/div[2]/menu/ul/li[1]/button') -> dict:
         '''
         This function first locates the details button element and clicks. The elements containing product details are then 
         located and iterated through. Key's are obtained from the outerHTML of the dt tag. Values are obtained from the 
@@ -203,20 +201,16 @@ class WebDriver():
         Returns:
             dict
         '''
+        #locate and click details tab
         button_xpath = button_xpath
         button = self.driver.find_element(By.XPATH, button_xpath)
         WebDriverWait(self.driver, 5).until(EC.element_to_be_clickable(button)).click()
-        details_dict = {}
-        details_xpath_1 = xpath_1
-        details_xpath_2 = xpath_2
-        details_xpath_3 = xpath_3
-        details_xpath_4 = xpath_4
-        try:
-            details = self.driver.find_element(By.XPATH, details_xpath_1)
-        except:
-            details = self.driver.find_element(By.XPATH, details_xpath_2)
-        
 
+        details_dict = {}
+        #locate general drawer element
+        side_drawer = self.driver.find_element(By.TAG_NAME, 'aside')
+        #details container xpath changes with each product, the general container is located via TAGNAME and then the correct child is located.
+        details = side_drawer.find_element(By.XPATH, '//div/div/div/dl')
         elements = details.find_elements(By.TAG_NAME, 'div') 
         for element in elements:
             detail = element.find_element(By.TAG_NAME, 'dt')
