@@ -106,8 +106,8 @@ class WebDriver():
 
     def check_scraper_ready(self, amount_to_scrape: int= 10, xpath: str='//*[@id="page-content"]/div/div[2]/div[2]/h2'):
         '''
-        This function obtains the number of items visible to the driver and the total number of items. 
-        If all possible items are shown, then scraper is ready, returns True. 
+        This function obtains the number of items visible to the driver. 
+        If the number of visible items exceeds the desired amount of items to scrape, returns True. 
 
         Returns:
             Bool
@@ -118,12 +118,10 @@ class WebDriver():
 
         x = int(items_shown)
         y = amount_to_scrape
-        print(f'The number of items visible is {x}')
-        if x > y: #currently using placeholder number for testing
-            print('Scraper is ready')
+
+        if x > y: 
             return True 
         else:
-            print('Scraper is not ready')
             return False        
 
 
@@ -131,6 +129,12 @@ class WebDriver():
         '''
         This function locates all products in the observable product_container and itterates through, obtaining 
         all product hrefs. Product hrefs are then appended to href_list. 
+
+        NOTE: # OF HREFS IS NOT EQUAL TO # OF PRODUCTS VISITED BY SCRAPER. 
+            H&M STORES MULTIPLE VARIATIONS (COLOUR/DESIGN) OF THE SAME PRODUCT IN A SINGLE HREF.
+            NOT QUITE SURE HOW TO FIX THIS.
+
+            AM I REVISITING THE SAME PRODUCT AT ANY POINT?
 
         Returns:
             List
@@ -150,7 +154,10 @@ class WebDriver():
     def obtain_product_type(self):
         '''
         This function obtains the product catagorisation from the 'breadcrumb' container and appends it to 
-        product_catagorisation list.   
+        product_catagorisation list.  
+
+        TODO: CURRENTLY THE PRODUCT NAME IS STORED AS THE FINAL INDEX IN product_catagorisation, THIS IS NOT NECCESSARY
+            SINCE THE NAME IS STORED SEPERATELY IN THE product_dict.
 
         Returns:
             List
@@ -171,10 +178,14 @@ class WebDriver():
         return(product_catagorisation)
 
     
-    def obtain_product_price(self, xpath: str='//*[@id="product-price"]/div/span', xpath_reduced: str='//*[@id="product-price"]/div/div[1]/span') -> str:
+    def obtain_product_price(self, xpath: str='//*[@id="product-price"]/div/span', 
+        xpath_reduced: str='//*[@id="product-price"]/div/div[1]/span') -> str:
+
         '''
         This function locates the price element on product page from the outerHTML and returns a cleaned string.
-        
+
+        TODO: IF REDUCED, CONVEY THIS IN PRODUCT DICTIONARY.
+
         Returns:
             Str
         '''
@@ -184,7 +195,7 @@ class WebDriver():
             price = self.driver.find_element(By.XPATH, price_xpath)
             outer_html = price.get_attribute('outerHTML')
             price = regex.search('>(.*)</span>', outer_html).group(1)
-        except:#if the price is reduced, the element is contained in a seperate xpath
+        except: #if the price is reduced, the element is contained in a seperate xpath
             price = self.driver.find_element(By.XPATH, reduced_price_xpath)
             outer_html = price.get_attribute('outerHTML')
             price = regex.search('>(.*)</span>', outer_html).group(1)
@@ -209,7 +220,8 @@ class WebDriver():
         details_dict = {}
         #locate general drawer element
         side_drawer = self.driver.find_element(By.TAG_NAME, 'aside')
-        #details container xpath changes with each product, the general container is located via TAGNAME and then the correct child is located.
+        #details container xpath changes with each product, 
+        #the general container is located via TAGNAME and then the correct child is located.
         details = side_drawer.find_element(By.XPATH, '//div/div/div/dl')
         elements = details.find_elements(By.TAG_NAME, 'div') 
         for element in elements:
@@ -229,6 +241,9 @@ class WebDriver():
     def obtain_image_src(self, xpath: str='//*[@id="main-content"]/div[2]/div[2]/div[1]/figure[1]/div/img') -> str:
         '''
         This function locates the first image element and returns the src attribute. 
+
+        NOTE: THIS CAN BE DONE WITHOUT ACTUALLY LOADING THE IMAGES, WHICH CAN IMPROVE SPEED.
+        IMAGE RENDERING IS DISABLED
 
         Returns:
             Str
