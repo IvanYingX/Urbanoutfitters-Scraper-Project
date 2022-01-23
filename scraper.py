@@ -1,16 +1,12 @@
-from botocore.utils import should_bypass_proxies
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver import ActionChains
 import urllib
 import urllib.request
 import tempfile
-from sklearn.feature_extraction import image
-from sqlalchemy import Boolean
 from tqdm import tqdm
 import boto3
 import re as regex
@@ -52,22 +48,22 @@ class WebDriver():
         self.accept_cookies()
         
     
-    def accept_cookies(self, xpath: str='//*[@id="onetrust-accept-btn-handler"]') -> None:
+    def accept_cookies(self, css: str = '#onetrust-accept-btn-handler') -> None:
         '''
         This function is used to close the accept cookies pop-up
 
         Returns:
             None
         '''
-        accept_cookies_xpath = xpath
+        accept_cookies_css = css
         try:
-            button = self.driver.find_element(By.XPATH, accept_cookies_xpath)
+            button = self.driver.find_element(By.CSS_SELECTOR, accept_cookies_css)
             WebDriverWait(self.driver, 5).until(EC.element_to_be_clickable(button)).click()
         except:
             pass
 
     
-    def navigate_to_male(self, html: str='https://www2.hm.com/en_gb/men/shop-by-product/view-all.html') -> None:
+    def navigate_to_male(self, html: str = 'https://www2.hm.com/en_gb/men/shop-by-product/view-all.html') -> None:
         '''
         This function 'navigates' to the all products male page.
 
@@ -78,7 +74,7 @@ class WebDriver():
         self.driver.get(male_html)
 
     
-    def navigate_to_female(self, html: str='https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html') -> None:
+    def navigate_to_female(self, html: str = 'https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html') -> None:
         '''
         This function navigates to the all products female page.
 
@@ -89,7 +85,7 @@ class WebDriver():
         self.driver.get(female_html)
 
 
-    def load_more(self, xpath: str='//*[@id="page-content"]/div/div[2]/div[2]') -> None:
+    def load_more(self, css: str = '#page-content > div > div:nth-of-type(2) > div:nth-of-type(2)') -> None:
         '''
         This function waits for the pressence of the 'load_more' button and clicks using actionchains to avoid 
         "Element is not clickable" error.
@@ -98,15 +94,17 @@ class WebDriver():
             None
         '''
         long_wait = WebDriverWait(self, 10)
-        load_page_xpath = xpath
-        load_page = self.driver.find_element(By.XPATH, load_page_xpath)
+        load_page_css = css
+        load_page = self.driver.find_element(By.CSS_SELECTOR, load_page_css)
         button = load_page.find_element(By.TAG_NAME, 'button')
         element = long_wait.until(EC.element_to_be_clickable(button))
         actionChains = ActionChains(self.driver)
         actionChains.context_click(element).click().perform()
 
 
-    def check_scraper_ready(self, amount_to_scrape: int= 10, xpath: str='//*[@id="page-content"]/div/div[2]/div[2]/h2') -> bool:
+    def check_scraper_ready(self, amount_to_scrape: int= 10, 
+        css: str = '#page-content > div > div:nth-of-type(2) > div:nth-of-type(2) > h2') -> bool:
+
         '''
         This function obtains the number of items visible to the driver. 
         If the number of visible items exceeds the desired amount of items to scrape, returns True. 
@@ -114,8 +112,8 @@ class WebDriver():
         Returns:
             Bool
         '''
-        load_more_xpath = xpath
-        load_more_element = self.driver.find_element(By.XPATH, load_more_xpath)
+        load_more_css = css
+        load_more_element = self.driver.find_element(By.CSS_SELECTOR, load_more_css)
         items_shown = load_more_element.get_attribute('data-items-shown')
 
         x = int(items_shown)
@@ -127,7 +125,7 @@ class WebDriver():
             return False        
 
 
-    def obtain_product_href(self, xpath: str='//*[@id="page-content"]/div/div[2]/ul') -> list:
+    def obtain_product_href(self, css: str = '#page-content > div > div:nth-of-type(2) > ul') -> list:
         '''
         This function locates all products in the observable product_container and itterates through, obtaining 
         all product hrefs. Product hrefs are then appended to href_list. 
@@ -142,8 +140,8 @@ class WebDriver():
             List
         '''
         href_list = []
-        product_container_xpath = xpath
-        product_container = self.driver.find_element(By.XPATH, product_container_xpath)
+        product_container_css = css
+        product_container = self.driver.find_element(By.CSS_SELECTOR, product_container_css)
         products = product_container.find_elements(By.TAG_NAME, 'li')
 
         for product in products:
@@ -153,7 +151,7 @@ class WebDriver():
         return(href_list)
         
 
-    def obtain_product_type(self) -> list:
+    def obtain_product_type(self, css: str = '#main-content > div:first-of-type > nav > ul') -> list:
         '''
         This function obtains the product catagorisation from the 'breadcrumb' container and appends it to 
         product_catagorisation list.  
@@ -166,8 +164,8 @@ class WebDriver():
         '''
         #item type info is stored in 'breadcrumb_list' element
         product_catagorisation = []
-        breadcrumb_list_xpath = '//*[@id="main-content"]/div[1]/nav/ul'
-        breadcrumb_list = self.driver.find_element(By.XPATH, breadcrumb_list_xpath)
+        breadcrumb_list_css = css
+        breadcrumb_list = self.driver.find_element(By.CSS_SELECTOR, breadcrumb_list_css)
         catagory_containers = breadcrumb_list.find_elements(By.TAG_NAME, 'li')
 
         for catagory in catagory_containers[1:]:
@@ -180,8 +178,8 @@ class WebDriver():
         return(product_catagorisation)
 
     
-    def obtain_product_price(self, xpath: str='//*[@id="product-price"]/div/span', 
-        xpath_reduced: str='//*[@id="product-price"]/div/div[1]/span') -> str:
+    def obtain_product_price(self, css: str='#product-price > div > span', 
+        css_reduced: str='#product-price > div > div:first-of-type > span') -> str:
 
         '''
         This function locates the price element on product page from the outerHTML and returns a cleaned string.
@@ -191,20 +189,22 @@ class WebDriver():
         Returns:
             Str
         '''
-        price_xpath = xpath
-        reduced_price_xpath = xpath_reduced
+        price_css = css
+        reduced_price_css = css_reduced
         try:
-            price = self.driver.find_element(By.XPATH, price_xpath)
+            price = self.driver.find_element(By.CSS_SELECTOR, price_css)
             outer_html = price.get_attribute('outerHTML')
             price = regex.search('>(.*)</span>', outer_html).group(1)
         except: #if the price is reduced, the element is contained in a seperate xpath
-            price = self.driver.find_element(By.XPATH, reduced_price_xpath)
+            price = self.driver.find_element(By.CSS_SELECTOR, reduced_price_css)
             outer_html = price.get_attribute('outerHTML')
             price = regex.search('>(.*)</span>', outer_html).group(1)
         return price
 
 
-    def obtain_product_details(self, button_xpath: str='//*[@id="main-content"]/div[2]/div[2]/div[2]/menu/ul/li[1]/button') -> dict:
+    def obtain_product_details(self, css: str = 
+        '#main-content > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > menu > ul > li:first-of-type > button') -> dict:
+
         '''
         This function first locates the details button element and clicks. The elements containing product details are then 
         located and iterated through. Key's are obtained from the outerHTML of the dt tag. Values are obtained from the 
@@ -215,8 +215,8 @@ class WebDriver():
             dict
         '''
         #locate and click details tab
-        button_xpath = button_xpath
-        button = self.driver.find_element(By.XPATH, button_xpath)
+        button_css = css
+        button = self.driver.find_element(By.CSS_SELECTOR, button_css)
         WebDriverWait(self.driver, 5).until(EC.element_to_be_clickable(button)).click()
 
         details_dict = {}
@@ -224,7 +224,7 @@ class WebDriver():
         side_drawer = self.driver.find_element(By.TAG_NAME, 'aside')
         #details container xpath changes with each product, 
         #the general container is located via TAGNAME and then the correct child is located.
-        details = side_drawer.find_element(By.XPATH, '//div/div/div/dl')
+        details = side_drawer.find_element(By.CSS_SELECTOR, 'div > div > div > dl')
         elements = details.find_elements(By.TAG_NAME, 'div') 
         for element in elements:
             detail = element.find_element(By.TAG_NAME, 'dt')
@@ -238,9 +238,11 @@ class WebDriver():
                 comments.append(comment)
             details_dict.update({key:comments})
         return details_dict
+    
 
+    def obtain_image_src(self, css: str = 
+        '#main-content > div:nth-of-type(2) > div:nth-of-type(2) > div:first-of-type > figure:first-of-type > div > img') -> str:
 
-    def obtain_image_src(self, xpath: str='//*[@id="main-content"]/div[2]/div[2]/div[1]/figure[1]/div/img') -> str:
         '''
         This function locates the first image element and returns the src attribute. 
 
@@ -250,13 +252,13 @@ class WebDriver():
         Returns:
             Str
         '''
-        image_xpath = xpath
-        image = self.driver.find_element(By.XPATH, image_xpath)
+        image_css = css
+        image = self.driver.find_element(By.CSS_SELECTOR, image_css)
         src = image.get_attribute('src')
         return src
 
 
-    def obtain_product_sizes(self, xpath: str='//*[@id="picker-1"]/ul') -> list:
+    def obtain_product_sizes(self, id: str = 'picker-1') -> list:
         '''
         This function locates the element containing all product sizes. The container is then iterated through, 
         ignoring the first and last elements which are not sizes. The sizes are obtained from the elements' outerHTML
@@ -265,9 +267,9 @@ class WebDriver():
         Returns:
             list
         '''
-        sizes_xpath = xpath
+        container_id = id
         sizes = []
-        container = self.driver.find_element(By.XPATH, sizes_xpath)
+        container = self.driver.find_element(By.ID, container_id)
         elements = container.find_elements(By.TAG_NAME, 'li')
         for element in elements [1:len(elements)-1]:
             span = element.find_element(By.TAG_NAME, 'span')
@@ -424,5 +426,3 @@ if __name__ == '__main__':
     run_scraper()
 
 #StoreData.upload_image_to_datalake()
-
-
