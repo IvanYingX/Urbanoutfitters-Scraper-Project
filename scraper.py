@@ -121,7 +121,7 @@ class WebDriver():
         print(f'The number of items visible is {x}')
         if x > y: #currently using placeholder number for testing
             print('Scraper is ready')
-            return True except
+            return True
         else:
             print('Scraper is not ready')
             return False        
@@ -168,7 +168,9 @@ class WebDriver():
             catagories = regex.search('itemprop="name">(.*)</span>', outer_html).group(1)
             product_catagorisation.append(catagories)
 
+        # print(product_catagorisation)
         return(product_catagorisation)
+
 
     
     def obtain_product_price(self, xpath: str='//*[@id="product-price"]/div/span', xpath_reduced: str='//*[@id="product-price"]/div/div[1]/span') -> str:
@@ -306,6 +308,9 @@ class WebDriver():
 
         page_dict = {}
         href_list = self.obtain_product_href()
+        
+        i=0
+        
         for href in href_list:
             self.driver.get(href)
             product_dict = self.scrape_product()
@@ -315,6 +320,10 @@ class WebDriver():
                 json.dump(product_dict, fp)
                 product_id = product_dict.get('Art. No.')
             page_dict.update({product_id[0]:product_dict})
+            i += 1
+            if i==4:
+                break
+
         return page_dict
         
 
@@ -345,6 +354,9 @@ class WebDriver():
 
         end = time.time()
         print(end - start)
+    
+    def close_down(self):
+        self.driver.close()
 
     
 class StoreData():
@@ -365,7 +377,7 @@ class StoreData():
         Returns:
             None
         '''
-        with open('page_dict.json') as json_file:
+        with open('female_page_dict.json') as json_file:
             page_dict = json.load(json_file)
         key = "SRC"
         src_list = [sub[key] for sub in page_dict.values() if key in sub.keys()]
@@ -377,10 +389,8 @@ class StoreData():
         print(image_list)
 
         #TODO import the private credentials via file format for security purposes
-        session = boto3.Session( 
-        aws_access_key_id='AKIA3E73GVKXZ5IQTHWG',
-        aws_secret_access_key='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'
-        )
+
+        session = boto3.Session(profile_name='scraper')
         s3 = session.client('s3')
         # Create a temporary directory, so you don't store images in your local machine
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -411,11 +421,11 @@ def run_scraper():
     driver = WebDriver(URL)
     driver.open_the_webpage()
     driver.scrape_all()
+    driver.close_down()
     
 
 if __name__ == '__main__':
     run_scraper()
-
-#StoreData.upload_image_to_datalake()
+    # StoreData.upload_image_to_datalake()
 
 
