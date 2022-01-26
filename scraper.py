@@ -192,8 +192,7 @@ class WebDriver():
         price_css = css
         reduced_price_css = css_reduced
         try:
-            price = self.driver.find_element(By.CSS_SELECTOR, price_css)
-            outer_html = price.get_attribute('outerHTML')
+            outer_html = WebDriverWait(self.driver, 5).until(EC.visibility_of_element_located((By.CSS_SELECTOR, price_css))).get_attribute("outerHTML")
             price = regex.search('>(.*)</span>', outer_html).group(1)
         except: #if the price is reduced, the element is contained in a seperate xpath
             price = self.driver.find_element(By.CSS_SELECTOR, reduced_price_css)
@@ -219,14 +218,12 @@ class WebDriver():
         button_css = css
         button = self.driver.find_element(By.CSS_SELECTOR, button_css)
         WebDriverWait(self.driver, 5).until(EC.element_to_be_clickable(button)).click()
-        WebDriverWait(self.driver, 2)
         details_dict = {}
         #locate general drawer element
-        x = side-drawer
-        side_drawer = self.driver.find_element(By.XPATH(f"//input[contains(@id, x)]"))
+        asides = self.driver.find_elements(By.TAG_NAME, 'aside')
+        side_drawer = asides[len(asides)-1]
         #details container xpath changes with each product, 
         #the general container is located via TAGNAME and then the correct child is located.
-
         details = side_drawer.find_element(By.CSS_SELECTOR, 'div > div > div > dl')
         elements = details.find_elements(By.TAG_NAME, 'div') 
         for element in elements:
@@ -242,11 +239,6 @@ class WebDriver():
             details_dict.update({key:comments})
         return details_dict
     
-
-
-
-
-
 
     def obtain_image_src(self, css: str = 
         '#main-content > div:nth-of-type(2) > div:nth-of-type(2) > div:first-of-type > figure:first-of-type > div > img') -> str:
@@ -418,8 +410,6 @@ class StoreData():
                 f.write(response.read())           
                 s3.upload_file(f'{temp_dir}/image_{i}.jpg', 'urbanoutfittersbucket', f'{id}.jpg')
         
-
-
 
 
 
