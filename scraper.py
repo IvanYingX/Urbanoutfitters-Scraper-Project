@@ -176,7 +176,6 @@ class WebDriver():
             catagories = regex.search('itemprop="name">(.*)</span>', outer_html).group(1)
             product_catagorisation.append(catagories)
 
-        # print(product_catagorisation)
         return(product_catagorisation)
 
 
@@ -319,8 +318,6 @@ class WebDriver():
         page_dict = {}
         href_list = self.obtain_product_href()
         
-        i=0
-        
         for href in href_list:
             self.driver.get(href)
             product_dict = self.scrape_product()
@@ -330,9 +327,6 @@ class WebDriver():
                 json.dump(product_dict, fp)
                 product_id = product_dict.get('Art. No.')
             page_dict.update({product_id[0]:product_dict})
-            i += 1
-            if i==4:
-                break
 
         return page_dict
         
@@ -399,10 +393,11 @@ class StoreData():
             image = (a,b)
             image_list.append(image)
 
-        session = boto3.Session( 
-        aws_access_key_id='AKIA3E73GVKXZ5IQTHWG',
-        aws_secret_access_key='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'
-        )
+        # session = boto3.Session( 
+        # aws_access_key_id='AKIA3E73GVKXZ5IQTHWG',
+        # aws_secret_access_key='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'
+        # )
+        session = boto3.Session(profile_name='scraper')
         s3 = session.client('s3')
         # Create a temporary directory, so you don't store images in your local machine
         with tempfile.TemporaryDirectory() as temp_dir:
