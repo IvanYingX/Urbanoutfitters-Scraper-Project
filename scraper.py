@@ -213,17 +213,20 @@ class WebDriver():
 
         Returns:
             dict
+            
         '''
         #locate and click details tab
         button_css = css
         button = self.driver.find_element(By.CSS_SELECTOR, button_css)
         WebDriverWait(self.driver, 5).until(EC.element_to_be_clickable(button)).click()
-
+        WebDriverWait(self.driver, 2)
         details_dict = {}
         #locate general drawer element
-        side_drawer = self.driver.find_element(By.TAG_NAME, 'aside')
+        x = side-drawer
+        side_drawer = self.driver.find_element(By.XPATH(f"//input[contains(@id, x)]"))
         #details container xpath changes with each product, 
         #the general container is located via TAGNAME and then the correct child is located.
+
         details = side_drawer.find_element(By.CSS_SELECTOR, 'div > div > div > dl')
         elements = details.find_elements(By.TAG_NAME, 'div') 
         for element in elements:
@@ -239,6 +242,11 @@ class WebDriver():
             details_dict.update({key:comments})
         return details_dict
     
+
+
+
+
+
 
     def obtain_image_src(self, css: str = 
         '#main-content > div:nth-of-type(2) > div:nth-of-type(2) > div:first-of-type > figure:first-of-type > div > img') -> str:
