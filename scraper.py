@@ -406,15 +406,6 @@ class StoreData():
         Returns:
             None
         '''
-        # with open('female_page_dict.json') as json_file:
-        #     page_dict = json.load(json_file)
-        # key = "SRC"
-        # src_list = [sub[key] for sub in page_dict.values() if key in sub.keys()]
-        # image_id_list = list(page_dict.keys())
-        # image_list = []
-        # for (a,b) in zip(image_id_list, src_list):
-        #     image = (a,b)
-        #     image_list.append(image)
 
         image_list=[]
         for key, item in data.items():
