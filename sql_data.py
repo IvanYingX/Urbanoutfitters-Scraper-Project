@@ -13,24 +13,35 @@ def sql_data(data):
         None
     '''
     data_to_list=[]
-    for item in data:
-        data_to_list.append([list(item.keys())[0], list(item.values())[0][1], list(item.values())[0][4] ])
-    df = pd.DataFrame (data_to_list, columns = ['Link', 'Gender', 'Item'])
+    for key, item in data.items():
+        
+        data_to_list.append([key, item['Product Type'][0], item['Product'], item['Product Type'][1], item['Product Type'][2],
+                            item['Price'], item['Length'], item['Composition'], item['Care instructions'], item['Description'], 
+                            item['URL'], item['SRC']])
+
+    cols = ['ID', 'Gender', 'Item', 'Item Type', 'Item Sub-type', 'Price', 'Length', 'Composition', 'Care instructions', 'Description', 
+            'URL', 'SRC'] 
+    df = pd.DataFrame (data_to_list, columns = cols)   
+    print(df)
+    # DATABASE_TYPE = 'postgresql'
+    # DBAPI = 'psycopg2'
+    # HOST = 'localhost'
+    # USER = 'postgres' 
+    # PASSWORD = '123456' 
+    # DATABASE = 'scraper' 
+    # PORT = 5432
+
     DATABASE_TYPE = 'postgresql'
     DBAPI = 'psycopg2'
-    HOST = 'localhost'
-    USER = 'postgres' 
-    PASSWORD = '123456' 
-    DATABASE = 'scraper' 
+    ENDPOINT = 'scraper-database.ccrswyrqul7x.eu-west-2.rds.amazonaws.com'
+    USER = 'postgres'
+    PASSWORD = 'Barney321'
     PORT = 5432
-    engine = create_engine(f"{DATABASE_TYPE}+{DBAPI}://{USER}:{PASSWORD}@{HOST}:{PORT}/{DATABASE}")
+    DATABASE = 'postgres'
+    engine = create_engine(f"{DATABASE_TYPE}+{DBAPI}://{USER}:{PASSWORD}@{ENDPOINT}:{PORT}/{DATABASE}")
     
     df.to_sql('sql_dataset', engine, if_exists='replace')
-    return
-
-# ASSUMES INPUT DATA IS IN THIS FORM 
-# data=[{'https://www2.hm.com/en_gb/productpage.1033298001.html': ['HM.com', 'Women', 'Jackets &amp; Coats', 'Coats', 'Coat']},
-# {'https://www2.hm.com/en_gb/productpage.1033298001.html': ['HM.com', 'Women', 'Jackets &amp; Coats', 'Coats', 'Coat']}]
+    return None
 
 
 

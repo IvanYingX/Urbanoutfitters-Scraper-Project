@@ -9,5 +9,5 @@ setup(
     author = 'James Overend, Quratulaen Ikram, Dan Bouchard',
     license = 'MIT',
     packages = find_packages(),
-    install_requires = ['boto3', 'selenium', 'sklearn', 'tqdm'],
+    install_requires = ['boto3', 'selenium', 'sklearn', 'tqdm', 'sqlalchemy', 'pandas', 'psycopg2-binary'],
 )

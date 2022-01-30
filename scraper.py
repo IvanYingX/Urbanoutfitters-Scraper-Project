@@ -7,11 +7,13 @@ from selenium.webdriver import ActionChains
 import urllib
 import urllib.request
 import tempfile
+from sklearn.metrics import mean_absolute_error
 from tqdm import tqdm
 import boto3
 import re as regex
 import time
 import json
+import sql_data
 
 class WebDriver():
     '''
@@ -200,7 +202,8 @@ class WebDriver():
             price = self.driver.find_element(By.CSS_SELECTOR, reduced_price_css)
             outer_html = price.get_attribute('outerHTML')
             price = regex.search('>(.*)</span>', outer_html).group(1)
-        return price
+        price_float = float(price[1:])
+        return price_float
 
 
     def obtain_product_details(self, css: str = 
@@ -239,6 +242,13 @@ class WebDriver():
                 comment = regex.search('>(.*)</dd>', outer_html).group(1)
                 comments.append(comment)
             details_dict.update({key:comments})
+
+        for key, value in details_dict.items():
+            if len(value) == 1:
+                details_dict[key] = value[0]
+                if details_dict[key].isnumeric():
+                    details_dict[key] = int(details_dict[key])
+
         return details_dict
     
 
@@ -318,15 +328,22 @@ class WebDriver():
         page_dict = {}
         href_list = self.obtain_product_href()
         
+        amount_to_scrape = 10
+        i = 0
         for href in href_list:
             self.driver.get(href)
             product_dict = self.scrape_product()
             # write the product dictionary to a JSON file.
-            product_id = product_dict.get('Art. No.')[0]
+            product_id = product_dict['Art. No.']
             with open(f"{product_id}.json", 'w') as fp:
                 json.dump(product_dict, fp)
-                product_id = product_dict.get('Art. No.')
-            page_dict.update({product_id[0]:product_dict})
+                product_id = product_dict['Art. No.']
+            product_dict.update({'URL': href})
+            page_dict.update({product_id:product_dict})
+            i += 1
+            print(i)
+            if i >= amount_to_scrape:
+                break
 
         return page_dict
         
@@ -351,6 +368,7 @@ class WebDriver():
         with open(f"female_page_dict.json", 'w') as fp:
             json.dump(female_page_dict, fp)
 
+        
         #scrape male
         self.navigate_to_male()
         male_page_dict = self.scrape_gender()
@@ -360,6 +378,11 @@ class WebDriver():
 
         end = time.time()
         print(end - start)
+
+        female_page_dict.update(male_page_dict)
+        sql_data.sql_data(female_page_dict)
+
+        return female_page_dict
     
     def close_down(self):
         self.driver.close()
@@ -372,7 +395,7 @@ class StoreData():
     def __init__(self) -> None:
         pass
 
-    def upload_image_to_datalake() -> None:
+    def upload_images_to_datalake(data) -> None:
         '''
         This function obtains both an image SRC and ID from the page_dict.json file. A tempory directory is constructed and 
         each SRC is accesses, downloaded and then uploaded to the S3 bucket using the ID as a file name. 
@@ -383,15 +406,19 @@ class StoreData():
         Returns:
             None
         '''
-        with open('female_page_dict.json') as json_file:
-            page_dict = json.load(json_file)
-        key = "SRC"
-        src_list = [sub[key] for sub in page_dict.values() if key in sub.keys()]
-        image_id_list = list(page_dict.keys())
-        image_list = []
-        for (a,b) in zip(image_id_list, src_list):
-            image = (a,b)
-            image_list.append(image)
+        # with open('female_page_dict.json') as json_file:
+        #     page_dict = json.load(json_file)
+        # key = "SRC"
+        # src_list = [sub[key] for sub in page_dict.values() if key in sub.keys()]
+        # image_id_list = list(page_dict.keys())
+        # image_list = []
+        # for (a,b) in zip(image_id_list, src_list):
+        #     image = (a,b)
+        #     image_list.append(image)
+
+        image_list=[]
+        for key, item in data.items():
+            image_list.append((key, item['SRC']))
 
         # session = boto3.Session( 
         # aws_access_key_id='AKIA3E73GVKXZ5IQTHWG',
@@ -425,11 +452,11 @@ def run_scraper():
     URL = "https://www2.hm.com/en_gb/index.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
-    driver.scrape_all()
+    data = driver.scrape_all()
     driver.close_down()
+
+    StoreData.upload_images_to_datalake(data)
     
 
 if __name__ == '__main__':
     run_scraper()
-
-#StoreData.upload_image_to_datalake()
