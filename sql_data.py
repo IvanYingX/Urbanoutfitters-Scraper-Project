@@ -24,60 +24,65 @@ def sql_data(data):
     #         'URL', 'SRC']
 
     # df = pd.DataFrame (data_to_list, columns = cols)
-    cols_tmp = []
+    cols_custom = []
     for item in data.items():
         for key in item[1].keys():
-            cols_tmp.append(key)
+            cols_custom.append(key)
         
     
-    cols_tmp = list(set(cols_tmp))
-    cols_tmp.remove('Art. No.')
-    cols_tmp.remove('Product Type')
-    cols_tmp.remove('Product')
-    cols_tmp.remove('Price')
-    cols_tmp.remove('URL')
-    cols_tmp.remove('SRC')
-    cols_tmp.sort()
-    cols = ['ID', 'Gender', 'Item', 'Item Type', 'Item Sub-type', 'Price']
-    for x in cols_tmp:
-        cols.append(x)
-    cols.append('URL')
-    cols.append('SRC')
-    print(cols)
+    cols_custom = list(set(cols_custom))
+    cols_custom.remove('Art. No.')
+    cols_custom.remove('Product Type')
+    cols_custom.remove('Product')
+    cols_custom.remove('Price')
+    cols_custom.remove('URL')
+    cols_custom.remove('SRC')
+    cols_custom.sort()
+    cols_generic = ['ID', 'Gender', 'Item', 'Item Type', 'Item Sub-type', 'Price', 'URL', 'SRC']
+    cols = cols_generic + cols_custom
+    cols_custom1 = ['ID'] + cols_custom
+    
+    #print(cols_custom)
+    
 
-    data_to_list=[]
+    data_generic_to_list=[]
+    data_custom_to_list=[]
     for key, item in data.items():
-        list_tmp = []
+        list_generic_tmp = []
+        list_custom_tmp = []
         for col in cols:
             if col == 'ID':
-                list_tmp.append(key)
+                list_generic_tmp.append(key)
+                list_custom_tmp.append(key)
             elif col == 'Gender':
-                list_tmp.append(item['Product Type'][0])
+                list_generic_tmp.append(item['Product Type'][0])
             elif col == 'Item':
-                list_tmp.append(item['Product'])
+                list_generic_tmp.append(item['Product'])
             elif col == 'Item Type':
-                list_tmp.append(item['Product Type'][1])
+                list_generic_tmp.append(item['Product Type'][1])
             elif col == 'Item Sub-type':
-                list_tmp.append(item['Product Type'][2])
+                list_generic_tmp.append(item['Product Type'][2])
             elif col == 'Price':
-                list_tmp.append(item['Price'])
+                list_generic_tmp.append(item['Price'])
             elif col == 'URL':
-                list_tmp.append(item['URL'])
+                list_generic_tmp.append(item['URL'])
             elif col == 'SRC':
-                list_tmp.append(item['SRC'])
+                list_generic_tmp.append(item['SRC'])
             else:
                 if col in item:
-                    list_tmp.append(item[col])
+                    list_custom_tmp.append(item[col])
                 else:
-                    list_tmp.append(None)
+                    list_custom_tmp.append(None)
 
-        data_to_list.append(list_tmp)
+        data_generic_to_list.append(list_generic_tmp)
+        data_custom_to_list.append(list_custom_tmp)
     
 
     #print(data_to_list)
-    df = pd.DataFrame (data_to_list, columns = cols)
+    df_generic = pd.DataFrame (data_generic_to_list, columns = cols_generic)
+    df_custom = pd.DataFrame (data_custom_to_list, columns = cols_custom1)
      
-    print(df)
+    # print(df)
     # DATABASE_TYPE = 'postgresql'
     # DBAPI = 'psycopg2'
     # HOST = 'localhost'
@@ -95,7 +100,8 @@ def sql_data(data):
     DATABASE = 'postgres'
     engine = create_engine(f"{DATABASE_TYPE}+{DBAPI}://{USER}:{PASSWORD}@{ENDPOINT}:{PORT}/{DATABASE}")
     
-    df.to_sql('sql_dataset', engine, if_exists='replace')
+    df_generic.to_sql('base_info', engine, if_exists='replace')
+    df_custom.to_sql('custom_info', engine, if_exists='replace')
     return None
 
 
