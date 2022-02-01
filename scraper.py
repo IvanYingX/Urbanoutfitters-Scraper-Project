@@ -148,7 +148,11 @@ class WebDriver():
         for product in products:
             a_tag = product.find_element(By.TAG_NAME, 'a')
             href = a_tag.get_attribute('href')
-            href_list.append(href)
+
+            if href in href_list:
+                pass
+            else:
+                href_list.append(href)
         return(href_list)
         
 
