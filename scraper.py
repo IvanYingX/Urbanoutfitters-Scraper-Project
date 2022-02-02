@@ -444,33 +444,32 @@ class StoreData():
 
 def run_scraper():
     
-    # s3_bucket_details, rds_details = data_storage_details_from_json()
-    s3_bucket_details, rds_details = data_storage_details_from_cli()
-    
+    s3_bucket_credentials, rds_credentials = data_storage_credentials_from_json()
+    # s3_bucket_credentials, rds_credentials = data_storage_credentials_from_cli()
     
     URL = "https://www2.hm.com/en_gb/index.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
-    data = driver.scrape_all(rds_details)
+    data = driver.scrape_all(rds_credentials)
     driver.close_down()
-    store_data = StoreData(s3_bucket_details)
+    store_data = StoreData(s3_bucket_credentials)
     store_data.upload_images_to_datalake(data)
 
-def data_storage_details_from_json():
-    with open('data_storage_details.json') as json_file:
-        storage_details = json.load(json_file)
-    s3_bucket_details = storage_details['s3_bucket']
-    rds_details = storage_details['rds']
-    return (s3_bucket_details, rds_details)
+def data_storage_credentials_from_json():
+    with open('data_storage_credentials.json') as json_file:
+        storage_credentials = json.load(json_file)
+    s3_bucket_credentials = storage_credentials['s3_bucket']
+    rds_credentials = storage_credentials['rds']
+    return (s3_bucket_credentials, rds_credentials)
 
-def data_storage_details_from_cli():
+def data_storage_credentials_from_cli():
     
-    print('Please enter the S3 bucket details:')
+    print('Please enter the S3 bucket credentials:')
     access_key_id = input('Access Key ID: ')
     secret_access_key = input('Secret Access Key: ')
-    s3_bucket_details = {'access_key_id': access_key_id, 'secret_access_key': secret_access_key}
+    s3_bucket_credentials = {'access_key_id': access_key_id, 'secret_access_key': secret_access_key}
 
-    print('Please enter the RDS details:')
+    print('Please enter the RDS credentials:')
     DATABASE_TYPE = input('Database Type: ')
     DBAPI = input('DB API: ')
     ENDPOINT = input('Endpoint: ')
@@ -478,7 +477,7 @@ def data_storage_details_from_cli():
     PASSWORD = input('Password: ')
     PORT = int(input('Port: '))
     DATABASE = input('Database: ')
-    rds_details = {
+    rds_credentials = {
         'DATABASE_TYPE': DATABASE_TYPE,
         'DBAPI': DBAPI,
         'ENDPOINT': ENDPOINT,
@@ -487,7 +486,7 @@ def data_storage_details_from_cli():
         'PORT': PORT,
         'DATABASE': DATABASE
     }
-    return (s3_bucket_details, rds_details)
+    return (s3_bucket_credentials, rds_credentials)
     
 
 if __name__ == '__main__':

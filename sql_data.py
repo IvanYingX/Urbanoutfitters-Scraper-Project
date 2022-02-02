@@ -95,19 +95,19 @@ def unpack_rds_params(params_dict):
                 params_dict['USER'], params_dict['PASSWORD'], params_dict['PORT'], params_dict['DATABASE'])
     
 
-if __name__ == '__main__':
-    with open('female_page_dict.json') as json_file:
-        female_dict = json.load(json_file)
+# if __name__ == '__main__':
+#     with open('female_page_dict.json') as json_file:
+#         female_dict = json.load(json_file)
 
-    with open('male_page_dict.json') as json_file:
-        male_dict = json.load(json_file)
+#     with open('male_page_dict.json') as json_file:
+#         male_dict = json.load(json_file)
 
-    with open('data_storage_details.json') as json_file:
-        storage_details = json.load(json_file)
-        rds_details = storage_details['rds']
+#     with open('data_storage_details.json') as json_file:
+#         storage_details = json.load(json_file)
+#         rds_details = storage_details['rds']
 
-    female_dict.update(male_dict)
-    sql_data(female_dict, rds_details)
+#     female_dict.update(male_dict)
+#     sql_data(female_dict, rds_details)
 
 
 
