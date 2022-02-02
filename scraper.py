@@ -7,11 +7,13 @@ from selenium.webdriver import ActionChains
 import urllib
 import urllib.request
 import tempfile
+from sklearn.metrics import mean_absolute_error
 from tqdm import tqdm
 import boto3
 import re as regex
 import time
 import json
+import sql_data
 
 class WebDriver():
     '''
@@ -204,7 +206,8 @@ class WebDriver():
             price = self.driver.find_element(By.CSS_SELECTOR, reduced_price_css)
             outer_html = price.get_attribute('outerHTML')
             price = regex.search('>(.*)</span>', outer_html).group(1)
-        return price
+        price_float = float(price[1:])
+        return price_float
 
 
     def obtain_product_details(self, css: str = 
@@ -243,6 +246,13 @@ class WebDriver():
                 comment = regex.search('>(.*)</dd>', outer_html).group(1)
                 comments.append(comment)
             details_dict.update({key:comments})
+
+        for key, value in details_dict.items():
+            if len(value) == 1:
+                details_dict[key] = value[0]
+                if details_dict[key].isnumeric():
+                    details_dict[key] = int(details_dict[key])
+
         return details_dict
     
 
@@ -322,21 +332,24 @@ class WebDriver():
         page_dict = {}
         href_list = self.obtain_product_href()
         
+
         for href in href_list:
             self.driver.get(href)
             product_dict = self.scrape_product()
             # write the product dictionary to a JSON file.
-            product_id = product_dict.get('Art. No.')[0]
+            product_id = product_dict['Art. No.']
             with open(f"{product_id}.json", 'w') as fp:
                 json.dump(product_dict, fp)
-                product_id = product_dict.get('Art. No.')
-            page_dict.update({product_id[0]:product_dict})
+                product_id = product_dict['Art. No.']
+            product_dict.update({'URL': href})
+            page_dict.update({product_id:product_dict})
+            
 
         return page_dict
         
 
 
-    def scrape_all(self) -> None:
+    def scrape_all(self, rds_params) -> None:
         '''
         This function calls self.scrape_gender(), upon completion of this operation, the function
         to navigate to the next gender is called and commences self.scape_gender() again. 
@@ -355,6 +368,7 @@ class WebDriver():
         with open(f"female_page_dict.json", 'w') as fp:
             json.dump(female_page_dict, fp)
 
+        
         #scrape male
         self.navigate_to_male()
         male_page_dict = self.scrape_gender()
@@ -364,6 +378,11 @@ class WebDriver():
 
         end = time.time()
         print(end - start)
+
+        female_page_dict.update(male_page_dict)
+        sql_data.sql_data(female_page_dict, rds_params)
+
+        return female_page_dict
     
     def close_down(self):
         self.driver.close()
@@ -373,10 +392,12 @@ class StoreData():
     '''
     This class is used to interact with the S3 Bucket and store the scraped images and features.
     '''
-    def __init__(self) -> None:
-        pass
+    def __init__(self, s3_params) -> None:
+        self.aws_access_key_id = s3_params['access_key_id']
+        self.aws_secret_access_key = s3_params['secret_access_key']
+        
 
-    def upload_image_to_datalake() -> None:
+    def upload_images_to_datalake(self, data) -> None:
         '''
         This function obtains both an image SRC and ID from the page_dict.json file. A tempory directory is constructed and 
         each SRC is accesses, downloaded and then uploaded to the S3 bucket using the ID as a file name. 
@@ -387,21 +408,16 @@ class StoreData():
         Returns:
             None
         '''
-        with open('female_page_dict.json') as json_file:
-            page_dict = json.load(json_file)
-        key = "SRC"
-        src_list = [sub[key] for sub in page_dict.values() if key in sub.keys()]
-        image_id_list = list(page_dict.keys())
-        image_list = []
-        for (a,b) in zip(image_id_list, src_list):
-            image = (a,b)
-            image_list.append(image)
 
-        # session = boto3.Session( 
-        # aws_access_key_id='AKIA3E73GVKXZ5IQTHWG',
-        # aws_secret_access_key='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'
-        # )
-        session = boto3.Session(profile_name='scraper')
+        image_list=[]
+        for key, item in data.items():
+            image_list.append((key, item['SRC']))
+
+        session = boto3.Session( 
+        aws_access_key_id = self.aws_access_key_id,
+        aws_secret_access_key = self.aws_secret_access_key
+        )
+        
         s3 = session.client('s3')
         # Create a temporary directory, so you don't store images in your local machine
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -422,18 +438,56 @@ class StoreData():
                 f.write(response.read())           
                 s3.upload_file(f'{temp_dir}/image_{i}.jpg', 'urbanoutfittersbucket', f'{id}.jpg')
         
+        
 
 
 
 def run_scraper():
+    
+    s3_bucket_credentials, rds_credentials = data_storage_credentials_from_json()
+    # s3_bucket_credentials, rds_credentials = data_storage_credentials_from_cli()
+    
     URL = "https://www2.hm.com/en_gb/index.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
-    driver.scrape_all()
+    data = driver.scrape_all(rds_credentials)
     driver.close_down()
+    store_data = StoreData(s3_bucket_credentials)
+    store_data.upload_images_to_datalake(data)
+
+def data_storage_credentials_from_json():
+    with open('data_storage_credentials.json') as json_file:
+        storage_credentials = json.load(json_file)
+    s3_bucket_credentials = storage_credentials['s3_bucket']
+    rds_credentials = storage_credentials['rds']
+    return (s3_bucket_credentials, rds_credentials)
+
+def data_storage_credentials_from_cli():
+    
+    print('Please enter the S3 bucket credentials:')
+    access_key_id = input('Access Key ID: ')
+    secret_access_key = input('Secret Access Key: ')
+    s3_bucket_credentials = {'access_key_id': access_key_id, 'secret_access_key': secret_access_key}
+
+    print('Please enter the RDS credentials:')
+    DATABASE_TYPE = input('Database Type: ')
+    DBAPI = input('DB API: ')
+    ENDPOINT = input('Endpoint: ')
+    USER = input('Username: ')
+    PASSWORD = input('Password: ')
+    PORT = int(input('Port: '))
+    DATABASE = input('Database: ')
+    rds_credentials = {
+        'DATABASE_TYPE': DATABASE_TYPE,
+        'DBAPI': DBAPI,
+        'ENDPOINT': ENDPOINT,
+        'USER': USER,
+        'PASSWORD': PASSWORD,
+        'PORT': PORT,
+        'DATABASE': DATABASE
+    }
+    return (s3_bucket_credentials, rds_credentials)
     
 
 if __name__ == '__main__':
     run_scraper()
-
-#StoreData.upload_image_to_datalake()
