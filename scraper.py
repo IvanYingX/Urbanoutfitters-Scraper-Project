@@ -349,7 +349,7 @@ class WebDriver():
         
 
 
-    def scrape_all(self) -> None:
+    def scrape_all(self, rds_params) -> None:
         '''
         This function calls self.scrape_gender(), upon completion of this operation, the function
         to navigate to the next gender is called and commences self.scape_gender() again. 
@@ -380,7 +380,7 @@ class WebDriver():
         print(end - start)
 
         female_page_dict.update(male_page_dict)
-        sql_data.sql_data(female_page_dict)
+        sql_data.sql_data(female_page_dict, rds_params)
 
         return female_page_dict
     
@@ -392,10 +392,12 @@ class StoreData():
     '''
     This class is used to interact with the S3 Bucket and store the scraped images and features.
     '''
-    def __init__(self) -> None:
-        pass
+    def __init__(self, s3_params) -> None:
+        self.aws_access_key_id = s3_params['access_key_id']
+        self.aws_secret_access_key = s3_params['secret_access_key']
+        
 
-    def upload_images_to_datalake(data) -> None:
+    def upload_images_to_datalake(self, data) -> None:
         '''
         This function obtains both an image SRC and ID from the page_dict.json file. A tempory directory is constructed and 
         each SRC is accesses, downloaded and then uploaded to the S3 bucket using the ID as a file name. 
@@ -411,11 +413,11 @@ class StoreData():
         for key, item in data.items():
             image_list.append((key, item['SRC']))
 
-        # session = boto3.Session( 
-        # aws_access_key_id='AKIA3E73GVKXZ5IQTHWG',
-        # aws_secret_access_key='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'
-        # )
-        session = boto3.Session(profile_name='scraper')
+        session = boto3.Session( 
+        aws_access_key_id = self.aws_access_key_id,
+        aws_secret_access_key = self.aws_secret_access_key
+        )
+        
         s3 = session.client('s3')
         # Create a temporary directory, so you don't store images in your local machine
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -436,17 +438,56 @@ class StoreData():
                 f.write(response.read())           
                 s3.upload_file(f'{temp_dir}/image_{i}.jpg', 'urbanoutfittersbucket', f'{id}.jpg')
         
+        
 
 
 
 def run_scraper():
+    
+    # s3_bucket_details, rds_details = data_storage_details_from_json()
+    s3_bucket_details, rds_details = data_storage_details_from_cli()
+    
+    
     URL = "https://www2.hm.com/en_gb/index.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
-    data = driver.scrape_all()
+    data = driver.scrape_all(rds_details)
     driver.close_down()
+    store_data = StoreData(s3_bucket_details)
+    store_data.upload_images_to_datalake(data)
 
-    StoreData.upload_images_to_datalake(data)
+def data_storage_details_from_json():
+    with open('data_storage_details.json') as json_file:
+        storage_details = json.load(json_file)
+    s3_bucket_details = storage_details['s3_bucket']
+    rds_details = storage_details['rds']
+    return (s3_bucket_details, rds_details)
+
+def data_storage_details_from_cli():
+    
+    print('Please enter the S3 bucket details:')
+    access_key_id = input('Access Key ID: ')
+    secret_access_key = input('Secret Access Key: ')
+    s3_bucket_details = {'access_key_id': access_key_id, 'secret_access_key': secret_access_key}
+
+    print('Please enter the RDS details:')
+    DATABASE_TYPE = input('Database Type: ')
+    DBAPI = input('DB API: ')
+    ENDPOINT = input('Endpoint: ')
+    USER = input('Username: ')
+    PASSWORD = input('Password: ')
+    PORT = int(input('Port: '))
+    DATABASE = input('Database: ')
+    rds_details = {
+        'DATABASE_TYPE': DATABASE_TYPE,
+        'DBAPI': DBAPI,
+        'ENDPOINT': ENDPOINT,
+        'USER': USER,
+        'PASSWORD': PASSWORD,
+        'PORT': PORT,
+        'DATABASE': DATABASE
+    }
+    return (s3_bucket_details, rds_details)
     
 
 if __name__ == '__main__':

@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 import pandas as pd
 import json
 
-def sql_data(data):
+def sql_data(data, database_dict):
     '''
     
     This function allows to convert the list of dictionaries, containing the
@@ -82,38 +82,32 @@ def sql_data(data):
     df_generic = pd.DataFrame (data_generic_to_list, columns = cols_generic)
     df_custom = pd.DataFrame (data_custom_to_list, columns = cols_custom1)
      
-    # print(df)
-    # DATABASE_TYPE = 'postgresql'
-    # DBAPI = 'psycopg2'
-    # HOST = 'localhost'
-    # USER = 'postgres' 
-    # PASSWORD = '123456' 
-    # DATABASE = 'scraper' 
-    # PORT = 5432
+    DATABASE_TYPE, DBAPI, ENDPOINT, USER, PASSWORD, PORT, DATABASE = unpack_rds_params(database_dict)
 
-    DATABASE_TYPE = 'postgresql'
-    DBAPI = 'psycopg2'
-    ENDPOINT = 'scraper-database.ccrswyrqul7x.eu-west-2.rds.amazonaws.com'
-    USER = 'postgres'
-    PASSWORD = 'Barney321'
-    PORT = 5432
-    DATABASE = 'postgres'
     engine = create_engine(f"{DATABASE_TYPE}+{DBAPI}://{USER}:{PASSWORD}@{ENDPOINT}:{PORT}/{DATABASE}")
     
     df_generic.to_sql('base_info', engine, if_exists='replace')
     df_custom.to_sql('custom_info', engine, if_exists='replace')
     return None
 
+def unpack_rds_params(params_dict):
+    return (params_dict['DATABASE_TYPE'], params_dict['DBAPI'], params_dict['ENDPOINT'],
+                params_dict['USER'], params_dict['PASSWORD'], params_dict['PORT'], params_dict['DATABASE'])
+    
 
-# if __name__ == '__main__':
-#     with open('female_page_dict.json') as json_file:
-#         female_dict = json.load(json_file)
+if __name__ == '__main__':
+    with open('female_page_dict.json') as json_file:
+        female_dict = json.load(json_file)
 
-#     with open('male_page_dict.json') as json_file:
-#         male_dict = json.load(json_file)
+    with open('male_page_dict.json') as json_file:
+        male_dict = json.load(json_file)
 
-#     female_dict.update(male_dict)
-#     sql_data(female_dict)
+    with open('data_storage_details.json') as json_file:
+        storage_details = json.load(json_file)
+        rds_details = storage_details['rds']
+
+    female_dict.update(male_dict)
+    sql_data(female_dict, rds_details)
 
 
 
