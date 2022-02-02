@@ -328,8 +328,7 @@ class WebDriver():
         page_dict = {}
         href_list = self.obtain_product_href()
         
-        amount_to_scrape = 10
-        i = 0
+
         for href in href_list:
             self.driver.get(href)
             product_dict = self.scrape_product()
@@ -340,10 +339,7 @@ class WebDriver():
                 product_id = product_dict['Art. No.']
             product_dict.update({'URL': href})
             page_dict.update({product_id:product_dict})
-            i += 1
-            print(i)
-            if i >= amount_to_scrape:
-                break
+            
 
         return page_dict
         
