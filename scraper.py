@@ -102,31 +102,7 @@ class WebDriver():
         element = long_wait.until(EC.element_to_be_clickable(button))
         actionChains = ActionChains(self.driver)
         actionChains.context_click(element).click().perform()
-
-
-    def check_scraper_ready(self, amount_to_scrape: int= 10, 
-        css: str = '#page-content > div > div:nth-of-type(2) > div:nth-of-type(2) > h2') -> bool:
-
-        '''
-        This function obtains the number of items visible to the driver. 
-        If the number of visible items exceeds the desired amount of items to scrape, returns True. 
-
-        Returns:
-            Bool
-        '''
-        load_more_css = css
-        load_more_element = self.driver.find_element(By.CSS_SELECTOR, load_more_css)
-        items_shown = load_more_element.get_attribute('data-items-shown')
-
-        x = int(items_shown)
-        y = amount_to_scrape
-
         
-        if x > y: 
-            return True 
-        else:
-            return False        
-
 
     def obtain_product_href(self, css: str = '#page-content > div > div:nth-of-type(2) > ul') -> list:
         '''
@@ -323,12 +299,7 @@ class WebDriver():
         Returns:
             dict
         '''
-        prompt = self.check_scraper_ready() 
-        while prompt is False: 
-            self.load_more()
-            # need to call check_scraper_ready() again to update the prompt.
-            prompt = self.check_scraper_ready() 
-
+        
         page_dict = {}
         href_list = self.obtain_product_href()
         
@@ -349,7 +320,7 @@ class WebDriver():
         
 
 
-    def scrape_all(self, rds_params) -> None:
+    def scrape_all(self, rds_params, pages = 5) -> None:
         '''
         This function calls self.scrape_gender(), upon completion of this operation, the function
         to navigate to the next gender is called and commences self.scape_gender() again. 
@@ -363,6 +334,10 @@ class WebDriver():
         print(start)
         #scrape female
         self.navigate_to_female()
+
+        for _ in range(pages):
+            self.load_more()
+
         female_page_dict = self.scrape_gender()
         # write the page dictionary to a JSON file.  
         with open(f"female_page_dict.json", 'w') as fp:
@@ -371,6 +346,10 @@ class WebDriver():
         
         #scrape male
         self.navigate_to_male()
+
+        for _ in range(pages):
+            self.load_more()
+
         male_page_dict = self.scrape_gender()
         # write the page dictionary to a JSON file.  
         with open(f"male_page_dict.json", 'w') as fp:
@@ -456,7 +435,7 @@ def run_scraper():
     store_data.upload_images_to_datalake(data)
 
 def data_storage_credentials_from_json():
-    with open('data_storage_credentials.json') as json_file:
+    with open('Urbanoutfitters-Scraper-Project/data_storage_credentials.json') as json_file:
         storage_credentials = json.load(json_file)
     s3_bucket_credentials = storage_credentials['s3_bucket']
     rds_credentials = storage_credentials['rds']
