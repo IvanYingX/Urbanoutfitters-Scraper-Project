@@ -7,13 +7,11 @@ from selenium.webdriver import ActionChains
 import urllib
 import urllib.request
 import tempfile
-from sklearn.metrics import mean_absolute_error
 from tqdm import tqdm
 import boto3
 import re as regex
 import time
 import json
-import sql_data
 
 class WebDriver():
     '''
@@ -40,13 +38,27 @@ class WebDriver():
         '''
         prefs = {'profile.managed_default_content_settings.images': 2}
         
-        chrome_options = Options()
+        chrome_options=Options()
         chrome_options.add_experimental_option("detach", True)
         chrome_options.add_experimental_option('prefs', prefs)
+        chrome_options.add_argument("--window-size=1920,1080")
+        chrome_options.add_argument("--disable-extensions")
+        chrome_options.add_argument("--proxy-server='direct://'")
+        chrome_options.add_argument("--proxy-bypass-list=*")
+        chrome_options.add_argument("--start-maximized")
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--ignore-certificate-errors')
+        chrome_options.add_argument('--allow-running-insecure-content')
+        user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36'
+        chrome_options.add_argument(f'user-agent={user_agent}')
+
 
         self.driver = webdriver.Chrome(options=chrome_options)
         self.driver.get(self.url)
-        self.driver.maximize_window() #maximised window helps reduce the frequency of unclickable elements
+        #self.driver.maximize_window() #maximised window helps reduce the frequency of unclickable elements
         self.accept_cookies()
         
     
@@ -97,12 +109,15 @@ class WebDriver():
         '''
         long_wait = WebDriverWait(self, 10)
         load_page_css = css
-        load_page = self.driver.find_element(By.CSS_SELECTOR, load_page_css)
+        load_page = self.driver.find_element(By.XPATH, '//*[@id="page-content"]/div/div[2]/div[2]')
         button = load_page.find_element(By.TAG_NAME, 'button')
         element = long_wait.until(EC.element_to_be_clickable(button))
+        element.click()
         actionChains = ActionChains(self.driver)
         actionChains.context_click(element).click().perform()
-        
+
+
+
 
     def obtain_product_href(self, css: str = '#page-content > div > div:nth-of-type(2) > ul') -> list:
         '''
@@ -126,11 +141,7 @@ class WebDriver():
         for product in products:
             a_tag = product.find_element(By.TAG_NAME, 'a')
             href = a_tag.get_attribute('href')
-
-            if href in href_list:
-                pass
-            else:
-                href_list.append(href)
+            href_list.append(href)
         return(href_list)
         
 
@@ -182,8 +193,7 @@ class WebDriver():
             price = self.driver.find_element(By.CSS_SELECTOR, reduced_price_css)
             outer_html = price.get_attribute('outerHTML')
             price = regex.search('>(.*)</span>', outer_html).group(1)
-        price_float = float(price[1:])
-        return price_float
+        return price
 
 
     def obtain_product_details(self, css: str = 
@@ -222,13 +232,6 @@ class WebDriver():
                 comment = regex.search('>(.*)</dd>', outer_html).group(1)
                 comments.append(comment)
             details_dict.update({key:comments})
-
-        for key, value in details_dict.items():
-            if len(value) == 1:
-                details_dict[key] = value[0]
-                if details_dict[key].isnumeric():
-                    details_dict[key] = int(details_dict[key])
-
         return details_dict
     
 
@@ -298,29 +301,26 @@ class WebDriver():
 
         Returns:
             dict
-        '''
-        
+        ''' 
+
         page_dict = {}
         href_list = self.obtain_product_href()
         
-
         for href in href_list:
             self.driver.get(href)
             product_dict = self.scrape_product()
             # write the product dictionary to a JSON file.
-            product_id = product_dict['Art. No.']
+            product_id = product_dict.get('Art. No.')[0]
             with open(f"{product_id}.json", 'w') as fp:
                 json.dump(product_dict, fp)
-                product_id = product_dict['Art. No.']
-            product_dict.update({'URL': href})
-            page_dict.update({product_id:product_dict})
-            
+                product_id = product_dict.get('Art. No.')
+            page_dict.update({product_id[0]:product_dict})
 
         return page_dict
         
 
 
-    def scrape_all(self, rds_params, pages = 5) -> None:
+    def scrape_all(self) -> None:
         '''
         This function calls self.scrape_gender(), upon completion of this operation, the function
         to navigate to the next gender is called and commences self.scape_gender() again. 
@@ -332,24 +332,22 @@ class WebDriver():
         '''
         start = time.time()
         print(start)
+
+
         #scrape female
         self.navigate_to_female()
-
-        for _ in range(pages):
+        for i in range(5):
             self.load_more()
-
         female_page_dict = self.scrape_gender()
         # write the page dictionary to a JSON file.  
         with open(f"female_page_dict.json", 'w') as fp:
             json.dump(female_page_dict, fp)
-
         
+       
         #scrape male
         self.navigate_to_male()
-
-        for _ in range(pages):
+        for i in range(5):
             self.load_more()
-
         male_page_dict = self.scrape_gender()
         # write the page dictionary to a JSON file.  
         with open(f"male_page_dict.json", 'w') as fp:
@@ -357,11 +355,6 @@ class WebDriver():
 
         end = time.time()
         print(end - start)
-
-        female_page_dict.update(male_page_dict)
-        sql_data.sql_data(female_page_dict, rds_params)
-
-        return female_page_dict
     
     def close_down(self):
         self.driver.close()
@@ -371,12 +364,10 @@ class StoreData():
     '''
     This class is used to interact with the S3 Bucket and store the scraped images and features.
     '''
-    def __init__(self, s3_params) -> None:
-        self.aws_access_key_id = s3_params['access_key_id']
-        self.aws_secret_access_key = s3_params['secret_access_key']
-        
+    def __init__(self) -> None:
+        pass
 
-    def upload_images_to_datalake(self, data) -> None:
+    def upload_image_to_datalake() -> None:
         '''
         This function obtains both an image SRC and ID from the page_dict.json file. A tempory directory is constructed and 
         each SRC is accesses, downloaded and then uploaded to the S3 bucket using the ID as a file name. 
@@ -387,16 +378,21 @@ class StoreData():
         Returns:
             None
         '''
+        with open('female_page_dict.json') as json_file:
+            page_dict = json.load(json_file)
+        key = "SRC"
+        src_list = [sub[key] for sub in page_dict.values() if key in sub.keys()]
+        image_id_list = list(page_dict.keys())
+        image_list = []
+        for (a,b) in zip(image_id_list, src_list):
+            image = (a,b)
+            image_list.append(image)
 
-        image_list=[]
-        for key, item in data.items():
-            image_list.append((key, item['SRC']))
-
-        session = boto3.Session( 
-        aws_access_key_id = self.aws_access_key_id,
-        aws_secret_access_key = self.aws_secret_access_key
-        )
-        
+        # session = boto3.Session( 
+        # aws_access_key_id='AKIA3E73GVKXZ5IQTHWG',
+        # aws_secret_access_key='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'
+        # )
+        session = boto3.Session(profile_name='scraper')
         s3 = session.client('s3')
         # Create a temporary directory, so you don't store images in your local machine
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -417,56 +413,18 @@ class StoreData():
                 f.write(response.read())           
                 s3.upload_file(f'{temp_dir}/image_{i}.jpg', 'urbanoutfittersbucket', f'{id}.jpg')
         
-        
 
 
 
 def run_scraper():
-    
-    s3_bucket_credentials, rds_credentials = data_storage_credentials_from_json()
-    # s3_bucket_credentials, rds_credentials = data_storage_credentials_from_cli()
-    
     URL = "https://www2.hm.com/en_gb/index.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
-    data = driver.scrape_all(rds_credentials)
+    driver.scrape_all()
     driver.close_down()
-    store_data = StoreData(s3_bucket_credentials)
-    store_data.upload_images_to_datalake(data)
-
-def data_storage_credentials_from_json():
-    with open('Urbanoutfitters-Scraper-Project/data_storage_credentials.json') as json_file:
-        storage_credentials = json.load(json_file)
-    s3_bucket_credentials = storage_credentials['s3_bucket']
-    rds_credentials = storage_credentials['rds']
-    return (s3_bucket_credentials, rds_credentials)
-
-def data_storage_credentials_from_cli():
-    
-    print('Please enter the S3 bucket credentials:')
-    access_key_id = input('Access Key ID: ')
-    secret_access_key = input('Secret Access Key: ')
-    s3_bucket_credentials = {'access_key_id': access_key_id, 'secret_access_key': secret_access_key}
-
-    print('Please enter the RDS credentials:')
-    DATABASE_TYPE = input('Database Type: ')
-    DBAPI = input('DB API: ')
-    ENDPOINT = input('Endpoint: ')
-    USER = input('Username: ')
-    PASSWORD = input('Password: ')
-    PORT = int(input('Port: '))
-    DATABASE = input('Database: ')
-    rds_credentials = {
-        'DATABASE_TYPE': DATABASE_TYPE,
-        'DBAPI': DBAPI,
-        'ENDPOINT': ENDPOINT,
-        'USER': USER,
-        'PASSWORD': PASSWORD,
-        'PORT': PORT,
-        'DATABASE': DATABASE
-    }
-    return (s3_bucket_credentials, rds_credentials)
     
 
 if __name__ == '__main__':
     run_scraper()
+
+#StoreData.upload_image_to_datalake()
