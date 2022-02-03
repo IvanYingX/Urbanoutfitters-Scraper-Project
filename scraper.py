@@ -1,8 +1,6 @@
-from botocore.utils import should_bypass_proxies
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver import ActionChains
@@ -12,9 +10,8 @@ import tempfile
 from tqdm import tqdm
 import boto3
 import re as regex
-from time import sleep
-
-
+import time
+import json
 
 class WebDriver():
     '''
@@ -40,82 +37,105 @@ class WebDriver():
             None
         '''
         prefs = {'profile.managed_default_content_settings.images': 2}
-        chrome_options = Options()
+        
+        chrome_options=Options()
         chrome_options.add_experimental_option("detach", True)
         chrome_options.add_experimental_option('prefs', prefs)
+        chrome_options.add_argument("--window-size=1920,1080")
+        chrome_options.add_argument("--disable-extensions")
+        chrome_options.add_argument("--proxy-server='direct://'")
+        chrome_options.add_argument("--proxy-bypass-list=*")
+        chrome_options.add_argument("--start-maximized")
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--ignore-certificate-errors')
+        chrome_options.add_argument('--allow-running-insecure-content')
+        user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36'
+        chrome_options.add_argument(f'user-agent={user_agent}')
+
 
         self.driver = webdriver.Chrome(options=chrome_options)
         self.driver.get(self.url)
-        self.driver.maximize_window() #maximised window helps reduce the frequency of unclickable elements
+        #self.driver.maximize_window() #maximised window helps reduce the frequency of unclickable elements
         self.accept_cookies()
         
     
-    def accept_cookies(self, xpath: str='//*[@id="onetrust-accept-btn-handler"]') -> None:
+    def accept_cookies(self, css: str = '#onetrust-accept-btn-handler') -> None:
         '''
         This function is used to close the accept cookies pop-up
 
         Returns:
             None
         '''
-        accept_cookies_xpath = xpath
+        accept_cookies_css = css
         try:
-            button = self.driver.find_element(By.XPATH, accept_cookies_xpath)
+            button = self.driver.find_element(By.CSS_SELECTOR, accept_cookies_css)
             WebDriverWait(self.driver, 5).until(EC.element_to_be_clickable(button)).click()
         except:
             pass
 
+    
+    def navigate_to_male(self, html: str = 'https://www2.hm.com/en_gb/men/shop-by-product/view-all.html') -> None:
+        '''
+        This function 'navigates' to the all products male page.
 
-    def load_more(self, xpath: str='//*[@id="page-content"]/div/div[2]/div[2]'):
+        Returns:
+            None
+        '''
+        male_html = html
+        self.driver.get(male_html)
+
+    
+    def navigate_to_female(self, html: str = 'https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html') -> None:
+        '''
+        This function navigates to the all products female page.
+
+        Returns:
+            None
+        '''
+        female_html = html
+        self.driver.get(female_html)
+
+
+    def load_more(self, css: str = '#page-content > div > div:nth-of-type(2) > div:nth-of-type(2)') -> None:
         '''
         This function waits for the pressence of the 'load_more' button and clicks using actionchains to avoid 
         "Element is not clickable" error.
+
         Returns:
             None
         '''
         long_wait = WebDriverWait(self, 10)
-        load_page_xpath = xpath
-        load_page = self.driver.find_element(By.XPATH, load_page_xpath)
+        load_page_css = css
+        load_page = self.driver.find_element(By.XPATH, '//*[@id="page-content"]/div/div[2]/div[2]')
         button = load_page.find_element(By.TAG_NAME, 'button')
         element = long_wait.until(EC.element_to_be_clickable(button))
+        element.click()
         actionChains = ActionChains(self.driver)
         actionChains.context_click(element).click().perform()
 
 
-    def check_scraper_ready(self, xpath: str='//*[@id="page-content"]/div/div[2]/div[2]/h2'):
-        '''
-        This function obtains the number of items visible to the driver and the total number of items. 
-        If all possible items are shown, then scraper is ready, returns True. 
-
-        Returns:
-            Bool
-        '''
-        load_more_xpath = xpath
-        load_more_element = self.driver.find_element(By.XPATH, load_more_xpath)
-        items_shown = load_more_element.get_attribute('data-items-shown')
-        total_items = load_more_element.get_attribute('data-total')
-
-        x = int(items_shown)
-        y = int(total_items)
-        print(f'The number of items visible is {x}')
-        if x > 10: #currently using placeholder number for testing
-            print('Scraper is ready')
-            return True 
-        else:
-            print('Scraper is not ready')
-            return False        
 
 
-    def obtain_product_href(self, xpath: str='//*[@id="page-content"]/div/div[2]/ul'):
+    def obtain_product_href(self, css: str = '#page-content > div > div:nth-of-type(2) > ul') -> list:
         '''
         This function locates all products in the observable product_container and itterates through, obtaining 
         all product hrefs. Product hrefs are then appended to href_list. 
+
+        NOTE: # OF HREFS IS NOT EQUAL TO # OF PRODUCTS VISITED BY SCRAPER. 
+            H&M STORES MULTIPLE VARIATIONS (COLOUR/DESIGN) OF THE SAME PRODUCT IN A SINGLE HREF.
+            NOT QUITE SURE HOW TO FIX THIS.
+
+            AM I REVISITING THE SAME PRODUCT AT ANY POINT?
 
         Returns:
             List
         '''
         href_list = []
-        product_container_xpath = xpath
-        product_container = self.driver.find_element(By.XPATH, product_container_xpath)
+        product_container_css = css
+        product_container = self.driver.find_element(By.CSS_SELECTOR, product_container_css)
         products = product_container.find_elements(By.TAG_NAME, 'li')
 
         for product in products:
@@ -125,21 +145,24 @@ class WebDriver():
         return(href_list)
         
 
-    def obtain_product_type(self):
+    def obtain_product_type(self, css: str = '#main-content > div:first-of-type > nav > ul') -> list:
         '''
         This function obtains the product catagorisation from the 'breadcrumb' container and appends it to 
-        product_catagorisation list.   
+        product_catagorisation list.  
+
+        TODO: CURRENTLY THE PRODUCT NAME IS STORED AS THE FINAL INDEX IN product_catagorisation, THIS IS NOT NECCESSARY
+            SINCE THE NAME IS STORED SEPERATELY IN THE product_dict.
 
         Returns:
             List
         '''
         #item type info is stored in 'breadcrumb_list' element
         product_catagorisation = []
-        breadcrumb_list_xpath = '//*[@id="main-content"]/div[1]/nav/ul'
-        breadcrumb_list = self.driver.find_element(By.XPATH, breadcrumb_list_xpath)
+        breadcrumb_list_css = css
+        breadcrumb_list = self.driver.find_element(By.CSS_SELECTOR, breadcrumb_list_css)
         catagory_containers = breadcrumb_list.find_elements(By.TAG_NAME, 'li')
 
-        for catagory in catagory_containers:
+        for catagory in catagory_containers[1:]:
             a_tag = catagory.find_element(By.TAG_NAME, 'a')
             element = a_tag.find_element(By.TAG_NAME, 'span')
             outer_html = element.get_attribute('outerHTML')
@@ -148,29 +171,34 @@ class WebDriver():
 
         return(product_catagorisation)
 
+
     
-    def obtain_product_price(self, xpath: str='//*[@id="product-price"]/div/span', xpath_reduced: str='//*[@id="product-price"]/div/div[1]/span') -> str:
+    def obtain_product_price(self, css: str='#product-price > div > span', 
+        css_reduced: str='#product-price > div > div:first-of-type > span') -> str:
+
         '''
         This function locates the price element on product page from the outerHTML and returns a cleaned string.
+
+        TODO: IF REDUCED, CONVEY THIS IN PRODUCT DICTIONARY.
 
         Returns:
             Str
         '''
-        price_xpath = xpath
-        reduced_price_xpath = xpath_reduced
+        price_css = css
+        reduced_price_css = css_reduced
         try:
-            price = self.driver.find_element(By.XPATH, price_xpath)
-            outer_html = price.get_attribute('outerHTML')
+            outer_html = WebDriverWait(self.driver, 5).until(EC.visibility_of_element_located((By.CSS_SELECTOR, price_css))).get_attribute("outerHTML")
             price = regex.search('>(.*)</span>', outer_html).group(1)
-        except:#if the price is reduced, the element is contained in a seperate xpath
-            price = self.driver.find_element(By.XPATH, reduced_price_xpath)
+        except: #if the price is reduced, the element is contained in a seperate xpath
+            price = self.driver.find_element(By.CSS_SELECTOR, reduced_price_css)
             outer_html = price.get_attribute('outerHTML')
             price = regex.search('>(.*)</span>', outer_html).group(1)
         return price
 
 
-    def obtain_product_details(self, button_xpath: str='//*[@id="main-content"]/div[2]/div[2]/div[2]/menu/ul/li[1]/button',
-        xpath: str='//*[@id="side-drawer-2"]/div/div/div/dl') -> dict:
+    def obtain_product_details(self, css: str = 
+        '#main-content > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > menu > ul > li:first-of-type > button') -> dict:
+
         '''
         This function first locates the details button element and clicks. The elements containing product details are then 
         located and iterated through. Key's are obtained from the outerHTML of the dt tag. Values are obtained from the 
@@ -179,13 +207,19 @@ class WebDriver():
 
         Returns:
             dict
+            
         '''
-        button_xpath = button_xpath
-        button = self.driver.find_element(By.XPATH, button_xpath)
+        #locate and click details tab
+        button_css = css
+        button = self.driver.find_element(By.CSS_SELECTOR, button_css)
         WebDriverWait(self.driver, 5).until(EC.element_to_be_clickable(button)).click()
         details_dict = {}
-        details_xpath = xpath
-        details = self.driver.find_element(By.XPATH, details_xpath)
+        #locate general drawer element
+        asides = self.driver.find_elements(By.TAG_NAME, 'aside')
+        side_drawer = asides[len(asides)-1]
+        #details container xpath changes with each product, 
+        #the general container is located via TAGNAME and then the correct child is located.
+        details = side_drawer.find_element(By.CSS_SELECTOR, 'div > div > div > dl')
         elements = details.find_elements(By.TAG_NAME, 'div') 
         for element in elements:
             detail = element.find_element(By.TAG_NAME, 'dt')
@@ -199,22 +233,27 @@ class WebDriver():
                 comments.append(comment)
             details_dict.update({key:comments})
         return details_dict
+    
 
+    def obtain_image_src(self, css: str = 
+        '#main-content > div:nth-of-type(2) > div:nth-of-type(2) > div:first-of-type > figure:first-of-type > div > img') -> str:
 
-    def obtain_image_src(self, xpath: str='//*[@id="main-content"]/div[2]/div[2]/div[1]/figure[1]/div/img') -> str:
         '''
         This function locates the first image element and returns the src attribute. 
+
+        NOTE: THIS CAN BE DONE WITHOUT ACTUALLY LOADING THE IMAGES, WHICH CAN IMPROVE SPEED.
+        IMAGE RENDERING IS DISABLED
 
         Returns:
             Str
         '''
-        image_xpath = xpath
-        image = self.driver.find_element(By.XPATH, image_xpath)
+        image_css = css
+        image = self.driver.find_element(By.CSS_SELECTOR, image_css)
         src = image.get_attribute('src')
         return src
 
 
-    def obtain_product_sizes(self, xpath: str='//*[@id="picker-1"]/ul') -> list:
+    def obtain_product_sizes(self, id: str = 'picker-1') -> list:
         '''
         This function locates the element containing all product sizes. The container is then iterated through, 
         ignoring the first and last elements which are not sizes. The sizes are obtained from the elements' outerHTML
@@ -223,9 +262,9 @@ class WebDriver():
         Returns:
             list
         '''
-        sizes_xpath = xpath
+        container_id = id
         sizes = []
-        container = self.driver.find_element(By.XPATH, sizes_xpath)
+        container = self.driver.find_element(By.ID, container_id)
         elements = container.find_elements(By.TAG_NAME, 'li')
         for element in elements [1:len(elements)-1]:
             span = element.find_element(By.TAG_NAME, 'span')
@@ -241,7 +280,7 @@ class WebDriver():
         dictionary. 
 
         Returns:
-            dict
+            Dict
         '''
         product_type = self.obtain_product_type()
         product_name = product_type[len(product_type)-1]
@@ -250,89 +289,142 @@ class WebDriver():
         image_src = self.obtain_image_src()
         product_dict = {'Product':product_name, 'Product Type':product_type, 'Price':product_price, 'SRC':image_src}
         product_dict.update(product_details)
-        print(product_dict)
         return product_dict
 
 
-    def scrape_page(self):
+    def scrape_gender(self) -> dict:
         '''
-        This function obtains a prompt from self.check_scraper_ready(), if prompt is False, more pages are loaded. 
-        If prompt is True, self.scrape_href() then iterate through href_list and self.obtain_product_type(). 
+        This function obtains a prompt from self.check_scraper_ready(), while prompt is False, more pages are loaded. 
+        Then iterate through href_list and self.obtain_product_type(). 
 
-        The reason for structuring the code this way is as follows: 
-        Unless all desired pages are loaded before scraping, the driver will try to locate elements which it has already
-        located and perform self.obtain_product_href() and self.obtain_product_type() on the same items over and over.
+        For the driver to run quickly and efficiently, all desired pages should be loaded before proceeding with other functions. 
+
+        Returns:
+            dict
+        ''' 
+
+        page_dict = {}
+        href_list = self.obtain_product_href()
         
-        For the driver to run quickly and efficiently, all pages should be loaded before proceeding with other functions. 
-        '''
-        prompt = self.check_scraper_ready() 
-        while prompt is False: # See line 102, atm the scraper should be ready to proceed when > 100 items are visible. 
-            self.load_more()
-            prompt = self.check_scraper_ready() 
-        while prompt is True:
-            page_dict = {}
-            href_list = self.obtain_product_href()
-            for href in href_list:
-                self.driver.get(href)
-                product_dict = self.scrape_product()
+        for href in href_list:
+            self.driver.get(href)
+            product_dict = self.scrape_product()
+            # write the product dictionary to a JSON file.
+            product_id = product_dict.get('Art. No.')[0]
+            with open(f"{product_id}.json", 'w') as fp:
+                json.dump(product_dict, fp)
                 product_id = product_dict.get('Art. No.')
-                page_dict.update({product_id[0]:product_dict})
-        print(page_dict)
+            page_dict.update({product_id[0]:product_dict})
+
         return page_dict
-
-    
-
-    def download_image(self) -> None:
-        '''
-        This function obtains image src from item page.  INCOMPLETE
-        '''
-
-        # s3_client = boto3.client('s3')
-
-        # image_container = self.driver.find_element(By.CLASS_NAME, 'product-detail-main-image-container')
-        # image = image_container.find_element(By.TAG_NAME, 'img')
-        # src = image.get_attribute('src')
         
 
-        # with tempfile.TemporaryDirectory() as temp_dir:
-        #     for i, scr in enumerate(tqdm(src)):
-        #         urllib.request.urlretrieve(scr, f'{temp_dir}/image_{i}.png')
-        #         s3_client.upload_file(f'{temp_dir}/image_{i}.png', 'urbanoutfittersbucket', f'dest_img_{i}.png')
+
+    def scrape_all(self) -> None:
+        '''
+        This function calls self.scrape_gender(), upon completion of this operation, the function
+        to navigate to the next gender is called and commences self.scape_gender() again. 
+        
+        NOTE: time.time() IS USED TO TIME THE PROCESS FOR OPTIMISATION.
+
+        Returns:
+            None
+        '''
+        start = time.time()
+        print(start)
 
 
+        #scrape female
+        self.navigate_to_female()
+        for i in range(5):
+            self.load_more()
+        female_page_dict = self.scrape_gender()
+        # write the page dictionary to a JSON file.  
+        with open(f"female_page_dict.json", 'w') as fp:
+            json.dump(female_page_dict, fp)
+        
+       
+        #scrape male
+        self.navigate_to_male()
+        for i in range(5):
+            self.load_more()
+        male_page_dict = self.scrape_gender()
+        # write the page dictionary to a JSON file.  
+        with open(f"male_page_dict.json", 'w') as fp:
+            json.dump(male_page_dict, fp)
 
-
-
+        end = time.time()
+        print(end - start)
+    
+    def close_down(self):
+        self.driver.close()
 
     
-
 class StoreData():
     '''
-    This class is used to interact with the S3 Bucket and store the scraped images and features
+    This class is used to interact with the S3 Bucket and store the scraped images and features.
     '''
     def __init__(self) -> None:
         pass
 
-    def upload_image_to_datalake(self):
-        pass
+    def upload_image_to_datalake() -> None:
+        '''
+        This function obtains both an image SRC and ID from the page_dict.json file. A tempory directory is constructed and 
+        each SRC is accesses, downloaded and then uploaded to the S3 bucket using the ID as a file name. 
 
+        TODO: TIDY THIS CODE, LOOKS SHITTY.
+        TODO: IMPORT THE PRIVATE CREDENTIALS VIA FILE FORMATE FOR SECURITY
 
+        Returns:
+            None
+        '''
+        with open('female_page_dict.json') as json_file:
+            page_dict = json.load(json_file)
+        key = "SRC"
+        src_list = [sub[key] for sub in page_dict.values() if key in sub.keys()]
+        image_id_list = list(page_dict.keys())
+        image_list = []
+        for (a,b) in zip(image_id_list, src_list):
+            image = (a,b)
+            image_list.append(image)
 
+        # session = boto3.Session( 
+        # aws_access_key_id='AKIA3E73GVKXZ5IQTHWG',
+        # aws_secret_access_key='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'
+        # )
+        session = boto3.Session(profile_name='scraper')
+        s3 = session.client('s3')
+        # Create a temporary directory, so you don't store images in your local machine
+        with tempfile.TemporaryDirectory() as temp_dir:
+            for i, image in enumerate(tqdm(image_list)):
+                # headers allow bypass of the website security restrictions
+                headers={'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
+                'Accept-Encoding': 'none',
+                'Accept-Language': 'en-US,en;q=0.8',
+                'Connection': 'keep-alive'}
+                id = image[0]
+                src = image[1]
+
+                request_ = urllib.request.Request(src,None,headers) #The assembled request
+                response = urllib.request.urlopen(request_)# store the response
+                f = open(f'{temp_dir}/image_{i}.jpg','wb')
+                f.write(response.read())           
+                s3.upload_file(f'{temp_dir}/image_{i}.jpg', 'urbanoutfittersbucket', f'{id}.jpg')
+        
 
 
 
 def run_scraper():
-    #URL = 'https://www2.hm.com/en_gb/productpage.1019417008.html'
-    URL = "https://www2.hm.com/en_gb/ladies/shop-by-product/view-all.html"
+    URL = "https://www2.hm.com/en_gb/index.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
-    driver.scrape_page()
+    driver.scrape_all()
+    driver.close_down()
     
-
-
 
 if __name__ == '__main__':
     run_scraper()
 
-
-
+#StoreData.upload_image_to_datalake()
