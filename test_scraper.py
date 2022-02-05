@@ -82,5 +82,5 @@ class ScraperTestCase(unittest.TestCase):
     def tearDown(self) -> None:
         self.driver.close_down()
 
-
-unittest.main(argv=[''], verbosity=1, exit=False)
+if __name__ == '__main__':
+    unittest.main()
