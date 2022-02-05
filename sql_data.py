@@ -47,32 +47,10 @@ def sql_data(data, database_dict):
 
     data_generic_to_list=[]
     data_custom_to_list=[]
+    gender = ''
     for key, item in data.items():
-        list_generic_tmp = []
-        list_custom_tmp = []
-        for col in cols:
-            if col == 'ID':
-                list_generic_tmp.append(key)
-                list_custom_tmp.append(key)
-            elif col == 'Gender':
-                list_generic_tmp.append(item['Product Type'][0])
-            elif col == 'Item':
-                list_generic_tmp.append(item['Product'])
-            elif col == 'Item Type':
-                list_generic_tmp.append(item['Product Type'][1])
-            elif col == 'Item Sub-type':
-                list_generic_tmp.append(item['Product Type'][2])
-            elif col == 'Price':
-                list_generic_tmp.append(item['Price'])
-            elif col == 'URL':
-                list_generic_tmp.append(item['URL'])
-            elif col == 'SRC':
-                list_generic_tmp.append(item['SRC'])
-            else:
-                if col in item:
-                    list_custom_tmp.append(item[col])
-                else:
-                    list_custom_tmp.append(None)
+        
+        list_generic_tmp, list_custom_tmp, gender = unpack_data_from_dict(cols, item, key, gender)
 
         data_generic_to_list.append(list_generic_tmp)
         data_custom_to_list.append(list_custom_tmp)
@@ -93,21 +71,61 @@ def sql_data(data, database_dict):
 def unpack_rds_params(params_dict):
     return (params_dict['DATABASE_TYPE'], params_dict['DBAPI'], params_dict['ENDPOINT'],
                 params_dict['USER'], params_dict['PASSWORD'], params_dict['PORT'], params_dict['DATABASE'])
+
+def unpack_data_from_dict(cols, item, key, gender):
+    
+    list_generic_tmp = []
+    list_custom_tmp = []
+    for col in cols:
+        if col == 'ID':
+            list_generic_tmp.append(key)
+            list_custom_tmp.append(key)
+        elif col == 'Gender':
+            if item['Product Type'][0] == 'Men' or item['Product Type'][0] == 'Women':
+                list_generic_tmp.append(item['Product Type'][0])
+                gender = item['Product Type'][0]
+            else:
+                list_generic_tmp.append(gender)
+        elif col == 'Item':
+            list_generic_tmp.append(item['Product'])
+        elif col == 'Item Type':
+            if len(item['Product Type']) > 1:
+                list_generic_tmp.append(item['Product Type'][1])
+            else:
+                list_generic_tmp.append(None)
+        elif col == 'Item Sub-type':
+            if len(item['Product Type']) > 2:
+                list_generic_tmp.append(item['Product Type'][2])
+            else:
+                list_generic_tmp.append(None)
+        elif col == 'Price':
+            list_generic_tmp.append(item['Price'])
+        elif col == 'URL':
+            list_generic_tmp.append(item['URL'])
+        elif col == 'SRC':
+            list_generic_tmp.append(item['SRC'])
+        else:
+            if col in item:
+                list_custom_tmp.append(item[col])
+            else:
+                list_custom_tmp.append(None)
+    
+    return list_generic_tmp, list_custom_tmp, gender
     
 
-# if __name__ == '__main__':
-#     with open('female_page_dict.json') as json_file:
-#         female_dict = json.load(json_file)
+if __name__ == '__main__':
+    with open('female_page_dict.json') as json_file:
+        female_dict = json.load(json_file)
 
-#     with open('male_page_dict.json') as json_file:
-#         male_dict = json.load(json_file)
+    with open('male_page_dict.json') as json_file:
+        male_dict = json.load(json_file)
 
-#     with open('data_storage_details.json') as json_file:
-#         storage_details = json.load(json_file)
-#         rds_details = storage_details['rds']
+    with open('data_storage_credentials.json') as json_file:
+        storage_details = json.load(json_file)
+        rds_details = storage_details['rds']
 
-#     female_dict.update(male_dict)
-#     sql_data(female_dict, rds_details)
+    female_dict.update(male_dict)
+    sql_data(female_dict, rds_details)
 
 
 

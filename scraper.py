@@ -313,18 +313,23 @@ class WebDriver():
         
         page_dict = {}
         href_list = self.obtain_product_href()
-        
+        i = 0
+        amount_to_scrape = 3
 
         for href in href_list:
             self.driver.get(href)
             product_dict = self.scrape_product()
             # write the product dictionary to a JSON file.
             product_id = product_dict['Art. No.']
-            with open(f"{product_id}.json", 'w') as fp:
-                json.dump(product_dict, fp)
-                product_id = product_dict['Art. No.']
+            # with open(f"{product_id}.json", 'w') as fp:
+            #     json.dump(product_dict, fp)
+            #     product_id = product_dict['Art. No.']
             product_dict.update({'URL': href})
             page_dict.update({product_id:product_dict})
+            i += 1
+            print(i)
+            # if i >= amount_to_scrape:
+            #     break
             
 
         return page_dict
@@ -429,18 +434,20 @@ class StoreData():
 
 def run_scraper():
     
-    s3_bucket_credentials, rds_credentials = data_storage_credentials_from_json()
-    # s3_bucket_credentials, rds_credentials = data_storage_credentials_from_cli()
+    # s3_bucket_credentials, rds_credentials = data_storage_credentials_from_json()
+    s3_bucket_credentials, rds_credentials = data_storage_credentials_from_cli()
     
     URL = "https://www2.hm.com/en_gb/index.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
+    # data = driver.scrape_all(rds_credentials, pages = 1)
     data = driver.scrape_all(rds_credentials)
     driver.close_down()
     store_data = StoreData(s3_bucket_credentials)
     store_data.upload_images_to_datalake(data)
 
 def data_storage_credentials_from_json():
+    # with open('data_storage_credentials.json') as json_file:
     with open('Urbanoutfitters-Scraper-Project/data_storage_credentials.json') as json_file:
         storage_credentials = json.load(json_file)
     s3_bucket_credentials = storage_credentials['s3_bucket']
