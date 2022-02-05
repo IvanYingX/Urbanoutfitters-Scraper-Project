@@ -3,8 +3,9 @@ from setuptools import find_packages
 
 setup(
     name = 'h_and_m_scraper',
-    version = '0.0.1',
+    version = '0.0.2',
     description = 'A scraper of the H&M website for both mens and womens clothes...',
+    long_description = 'A scraper of the H&M website for both mens and womens clothes...',
     url = 'https://github.com/IvanYingX/Urbanoutfitters-Scraper-Project',
     author = 'James Overend, Quratulaen Ikram, Dan Bouchard',
     license = 'MIT',
