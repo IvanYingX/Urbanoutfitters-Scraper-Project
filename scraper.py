@@ -39,10 +39,22 @@ class WebDriver():
             None
         '''
         prefs = {'profile.managed_default_content_settings.images': 2}
-        
-        chrome_options = Options()
+        chrome_options=Options()
         chrome_options.add_experimental_option("detach", True)
         chrome_options.add_experimental_option('prefs', prefs)
+        chrome_options.add_argument("--window-size=1920,1080")
+        chrome_options.add_argument("--disable-extensions")
+        chrome_options.add_argument("--proxy-server='direct://'")
+        chrome_options.add_argument("--proxy-bypass-list=*")
+        chrome_options.add_argument("--start-maximized")
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--ignore-certificate-errors')
+        chrome_options.add_argument('--allow-running-insecure-content')
+        user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36'
+        chrome_options.add_argument(f'user-agent={user_agent}')
 
         self.driver = webdriver.Chrome(options=chrome_options)
         self.driver.get(self.url)
@@ -159,7 +171,6 @@ class WebDriver():
             product_catagorisation.append(catagories)
 
         return(product_catagorisation)
-
 
     
     def obtain_product_price(self, css: str='#product-price > div > span', 
@@ -319,7 +330,6 @@ class WebDriver():
         return page_dict
         
 
-
     def scrape_all(self, rds_params, pages = 5) -> None:
         '''
         This function calls self.scrape_gender(), upon completion of this operation, the function
@@ -334,7 +344,6 @@ class WebDriver():
         print(start)
         #scrape female
         self.navigate_to_female()
-
         for _ in range(pages):
             self.load_more()
 
@@ -346,7 +355,6 @@ class WebDriver():
         
         #scrape male
         self.navigate_to_male()
-
         for _ in range(pages):
             self.load_more()
 
@@ -417,9 +425,7 @@ class StoreData():
                 f.write(response.read())           
                 s3.upload_file(f'{temp_dir}/image_{i}.jpg', 'urbanoutfittersbucket', f'{id}.jpg')
         
-        
-
-
+    
 
 def run_scraper():
     
