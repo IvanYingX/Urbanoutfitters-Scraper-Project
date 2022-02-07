@@ -297,6 +297,7 @@ class WebDriver():
         image_src = self.obtain_image_src()
         product_dict = {'Product':product_name, 'Product Type':product_type, 'Price':product_price, 'SRC':image_src}
         product_dict.update(product_details)
+        
         return product_dict
 
 
@@ -317,17 +318,21 @@ class WebDriver():
         amount_to_scrape = 3
 
         for href in href_list:
-            self.driver.get(href)
-            product_dict = self.scrape_product()
+            try:
+                self.driver.get(href)
+            
+                product_dict = self.scrape_product()
             # write the product dictionary to a JSON file.
-            product_id = product_dict['Art. No.']
+                product_id = product_dict['Art. No.']
             # with open(f"{product_id}.json", 'w') as fp:
             #     json.dump(product_dict, fp)
             #     product_id = product_dict['Art. No.']
-            product_dict.update({'URL': href})
-            page_dict.update({product_id:product_dict})
-            i += 1
-            print(i)
+                product_dict.update({'URL': href})
+                page_dict.update({product_id:product_dict})
+                i += 1
+                print(i)
+            except:
+                pass
             # if i >= amount_to_scrape:
             #     break
             
@@ -335,7 +340,7 @@ class WebDriver():
         return page_dict
         
 
-    def scrape_all(self, rds_params, pages = 5) -> None:
+    def scrape_all(self, rds_params, pages = 1) -> None:
         '''
         This function calls self.scrape_gender(), upon completion of this operation, the function
         to navigate to the next gender is called and commences self.scape_gender() again. 
