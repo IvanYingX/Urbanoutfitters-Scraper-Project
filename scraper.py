@@ -340,7 +340,7 @@ class WebDriver():
         return page_dict
         
 
-    def scrape_all(self, rds_params, pages = 1) -> None:
+    def scrape_all(self, rds_params, pages = 0) -> None:
         '''
         This function calls self.scrape_gender(), upon completion of this operation, the function
         to navigate to the next gender is called and commences self.scape_gender() again. 
@@ -472,7 +472,7 @@ def data_storage_credentials_from_cli():
     ENDPOINT = input('Endpoint: ')
     USER = input('Username: ')
     PASSWORD = input('Password: ')
-    PORT = int(input('Port: '))
+    PORT = input('Port: ')
     DATABASE = input('Database: ')
     rds_credentials = {
         'DATABASE_TYPE': DATABASE_TYPE,
