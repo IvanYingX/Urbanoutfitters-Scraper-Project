@@ -4,6 +4,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver import ActionChains
+from selenium.common import exceptions
 import urllib
 import urllib.request
 import tempfile
@@ -315,26 +316,28 @@ class WebDriver():
         page_dict = {}
         href_list = self.obtain_product_href()
         i = 0
-        amount_to_scrape = 3
+        amount_to_scrape = 500
 
         for href in href_list:
             try:
                 self.driver.get(href)
-            
-                product_dict = self.scrape_product()
+            except exceptions.WebDriverException:
+                time.sleep(1)
+                print("WebDriver Exception!!!")
+                continue
+
+            product_dict = self.scrape_product()
             # write the product dictionary to a JSON file.
-                product_id = product_dict['Art. No.']
+            product_id = product_dict['Art. No.']
             # with open(f"{product_id}.json", 'w') as fp:
             #     json.dump(product_dict, fp)
             #     product_id = product_dict['Art. No.']
-                product_dict.update({'URL': href})
-                page_dict.update({product_id:product_dict})
-                i += 1
-                print(i)
-            except:
-                pass
-            # if i >= amount_to_scrape:
-            #     break
+            product_dict.update({'URL': href})
+            page_dict.update({product_id:product_dict})
+            i += 1
+            print(f"Item No. {i}, ID = {product_id}")
+            if i >= amount_to_scrape:
+                break
             
 
         return page_dict
@@ -390,6 +393,7 @@ class StoreData():
     This class is used to interact with the S3 Bucket and store the scraped images and features.
     '''
     def __init__(self, s3_params) -> None:
+        self.bucket_name = s3_params['bucket_name']
         self.aws_access_key_id = s3_params['access_key_id']
         self.aws_secret_access_key = s3_params['secret_access_key']
         
@@ -433,7 +437,8 @@ class StoreData():
                 response = urllib.request.urlopen(request_)# store the response
                 f = open(f'{temp_dir}/image_{i}.jpg','wb')
                 f.write(response.read())           
-                s3.upload_file(f'{temp_dir}/image_{i}.jpg', 'urbanoutfittersbucket', f'{id}.jpg')
+                # s3.upload_file(f'{temp_dir}/image_{i}.jpg', 'urbanoutfittersbucket', f'{id}.jpg')
+                s3.upload_file(f'{temp_dir}/image_{i}.jpg', self.bucket_name, f'{id}.jpg')
         
     
 
@@ -441,19 +446,18 @@ def run_scraper():
     
     # s3_bucket_credentials, rds_credentials = data_storage_credentials_from_json()
     s3_bucket_credentials, rds_credentials = data_storage_credentials_from_cli()
-    
     URL = "https://www2.hm.com/en_gb/index.html"
     driver = WebDriver(URL)
     driver.open_the_webpage()
     # data = driver.scrape_all(rds_credentials, pages = 1)
-    data = driver.scrape_all(rds_credentials)
+    data = driver.scrape_all(rds_credentials, pages = 30)
     driver.close_down()
     store_data = StoreData(s3_bucket_credentials)
     store_data.upload_images_to_datalake(data)
 
 def data_storage_credentials_from_json():
-    # with open('data_storage_credentials.json') as json_file:
-    with open('Urbanoutfitters-Scraper-Project/data_storage_credentials.json') as json_file:
+    with open('data_storage_credentials.json') as json_file:
+    # with open('Urbanoutfitters-Scraper-Project/data_storage_credentials.json') as json_file:
         storage_credentials = json.load(json_file)
     s3_bucket_credentials = storage_credentials['s3_bucket']
     rds_credentials = storage_credentials['rds']
@@ -462,9 +466,10 @@ def data_storage_credentials_from_json():
 def data_storage_credentials_from_cli():
     
     print('Please enter the S3 bucket credentials:')
+    bucket_name = input('S3 Bucket name: ')
     access_key_id = input('Access Key ID: ')
     secret_access_key = input('Secret Access Key: ')
-    s3_bucket_credentials = {'access_key_id': access_key_id, 'secret_access_key': secret_access_key}
+    s3_bucket_credentials = {'bucket_name': bucket_name, 'access_key_id': access_key_id, 'secret_access_key': secret_access_key}
 
     print('Please enter the RDS credentials:')
     DATABASE_TYPE = input('Database Type: ')

@@ -21,7 +21,7 @@ class ScraperTestCase(unittest.TestCase):
     def test_product_price(self):
         self.driver.navigate_to_male(self.test_url)
         actual_product_price = self.driver.obtain_product_price()
-        print(actual_product_price)
+        # print(actual_product_price)
         expected_product_price = 19.99
         # expected_product_price = '£19.99'
         self.assertEqual(expected_product_price, actual_product_price)
@@ -31,11 +31,18 @@ class ScraperTestCase(unittest.TestCase):
         
         self.driver.navigate_to_male(self.test_url)
         actual_product_details = self.driver.obtain_product_details()
-                
+
+        # print(actual_product_details)
+
+        # expected_product_details = {'Length': 'Long', 'Sleeve Length': 'Long sleeve', 'Fit': 'Oversized', 
+        # 'Style': 'Sweatshirt', 'Neckline': 'Crew-neck', 'Composition': 'Cotton 78%, Polyester 22%', 
+        # 'Care instructions': 'Machine wash at 30°', 'Description': ['Light pink/White/Black', 'Boston'], 
+        # 'Concept': 'MODERN CLASSIC', 'Nice to know': 'Conscious choice', 'Art. No.': 1029275008}
+
         expected_product_details = {'Length': 'Long', 'Sleeve Length': 'Long sleeve', 'Fit': 'Oversized', 
         'Style': 'Sweatshirt', 'Neckline': 'Crew-neck', 'Composition': 'Cotton 78%, Polyester 22%', 
         'Care instructions': 'Machine wash at 30°', 'Description': ['Light pink/White/Black', 'Boston'], 
-        'Concept': 'MODERN CLASSIC', 'Nice to know': 'Conscious choice', 'Art. No.': 1029275008}
+        'Concept': 'MODERN CLASSIC', 'Art. No.': 1029275008}
 
         # expected_product_details = {'Length': ['Long'], 'Sleeve Length': ['Long sleeve'], 'Fit': ['Oversized'],
         # 'Style': ['Sweatshirt'], 'Neckline': ['Crew-neck'], 'Composition': ['Cotton 78%, Polyester 22%'],
@@ -73,7 +80,16 @@ class ScraperTestCase(unittest.TestCase):
         'Length': 'Long', 'Sleeve Length': 'Long sleeve', 'Fit': 'Oversized',
         'Style': 'Sweatshirt', 'Neckline': 'Crew-neck', 'Composition': 'Cotton 78%, Polyester 22%',
         'Care instructions': 'Machine wash at 30°', 'Description': ['Light pink/White/Black', 'Boston'],
-        'Concept': 'MODERN CLASSIC', 'Nice to know': 'Conscious choice', 'Art. No.': 1029275008}
+        'Concept': 'MODERN CLASSIC', 'Art. No.': 1029275008}
+
+        # expected_product_dict = {'Product': 'Oversized motif-detail sweatshirt',
+        # 'Product Type': ['Women', 'Sweatshirts &amp; Hoodies', 'Sweatshirts', 'Oversized motif-detail sweatshirt'], 
+        # 'Price': 19.99,
+        # 'SRC': 'https://lp2.hm.com/hmgoepprod?set=quality%5B79%5D%2Csource%5B%2F61%2Ff4%2F61f41c1afa02441dfa3491d21ad83126b07a8673.jpg%5D%2Corigin%5Bdam%5D%2Ccategory%5B%5D%2Ctype%5BLOOKBOOK%5D%2Cres%5Bm%5D%2Chmver%5B1%5D&call=url[file:/product/main]',
+        # 'Length': 'Long', 'Sleeve Length': 'Long sleeve', 'Fit': 'Oversized',
+        # 'Style': 'Sweatshirt', 'Neckline': 'Crew-neck', 'Composition': 'Cotton 78%, Polyester 22%',
+        # 'Care instructions': 'Machine wash at 30°', 'Description': ['Light pink/White/Black', 'Boston'],
+        # 'Concept': 'MODERN CLASSIC', 'Nice to know': 'Conscious choice', 'Art. No.': 1029275008}
 
         self.assertEqual(expected_product_dict, actual_product_dict)
 
